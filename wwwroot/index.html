@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TorrentSeek — Поиск торрентов</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #00ff88;
+    --accent2: #ff3366;
+    --text: #e0e0f0;
+    --muted: #555570;
+    --seed: #00cc66;
+    --peer: #ff4466;
+    --row-hover: #16161f;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  header {
+    padding: 48px 0 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 900;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, var(--accent) 0%, #00ccff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+
+  .logo span {
+    background: linear-gradient(135deg, #ff3366 0%, #ff9900 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .tagline {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  .search-wrap {
+    padding: 24px 0 48px;
+  }
+
+  .search-form {
+    display: flex;
+    gap: 0;
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-right: none;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    padding: 14px 20px;
+    outline: none;
+    transition: border-color .2s;
+    border-radius: 4px 0 0 4px;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset, 0 0 20px rgba(0,255,136,.08);
+  }
+
+  .search-input::placeholder { color: var(--muted); }
+
+  .search-btn {
+    background: var(--accent);
+    border: none;
+    color: #000;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 14px 28px;
+    cursor: pointer;
+    transition: all .2s;
+    border-radius: 0 4px 4px 0;
+    text-transform: uppercase;
+  }
+
+  .search-btn:hover {
+    background: #00ffaa;
+    box-shadow: 0 0 24px rgba(0,255,136,.4);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .status .count {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .status .source {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .3; }
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 48px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  th:first-child { color: var(--accent); }
+
+  th[data-sortable] {
+    cursor: pointer;
+    user-select: none;
+    transition: color .2s;
+    position: relative;
+    padding-right: 24px;
+  }
+
+  th[data-sortable]:hover {
+    color: var(--accent);
+  }
+
+  th[data-sortable]::after {
+    content: '⇅';
+    position: absolute;
+    right: 8px;
+    opacity: 0.4;
+    transition: opacity .2s, transform .2s;
+  }
+
+  th[data-sortable].active::after {
+    opacity: 1;
+    color: var(--accent);
+  }
+
+  th[data-sortable].sort-asc::after {
+    content: '↑';
+    transform: translateY(-2px);
+  }
+
+  th[data-sortable].sort-desc::after {
+    content: '↓';
+    transform: translateY(2px);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+    animation: fadeIn .3s ease both;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--row-hover); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  td {
+    padding: 13px 16px;
+    vertical-align: middle;
+  }
+
+  .td-num {
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+    width: 44px;
+  }
+
+  .td-name {
+    max-width: 520px;
+    line-height: 1.5;
+  }
+
+  .torrent-name {
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .td-size {
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .td-seeds { color: var(--seed); font-weight: 700; }
+  .td-peers { color: var(--peer); }
+
+  .td-date {
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .td-magnet { text-align: center; }
+
+  .btn-magnet {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,255,136,.08);
+    border: 1px solid rgba(0,255,136,.2);
+    color: var(--accent);
+    text-decoration: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 6px 12px;
+    border-radius: 3px;
+    transition: all .2s;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  .btn-magnet:hover {
+    background: rgba(0,255,136,.18);
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(0,255,136,.2);
+  }
+
+  .btn-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 6px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .2s;
+    margin-left: 4px;
+  }
+
+  .btn-copy:hover { border-color: var(--muted); color: var(--text); }
+  .btn-copy.copied { border-color: var(--accent); color: var(--accent); }
+
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    filter: grayscale(1);
+  }
+
+  .empty-state h2 {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .error-box {
+    background: rgba(255,51,102,.08);
+    border: 1px solid rgba(255,51,102,.25);
+    border-radius: 6px;
+    padding: 16px 20px;
+    color: var(--accent2);
+    margin-bottom: 24px;
+    font-size: 13px;
+  }
+
+  .welcome {
+    text-align: center;
+    padding: 60px 20px;
+  }
+
+  .welcome h2 {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 22px;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+
+  .welcome p { color: var(--muted); font-size: 13px; line-height: 1.8; }
+
+  .sources {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+  }
+
+  .source-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .source-tag .active-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .spinner {
+    display: none;
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin-left: 8px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .searching .spinner { display: inline-block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">Torrent<span>Seek</span></div>
+    <div class="tagline">Поиск по торрент-трекерам</div>
+  </header>
+
+  <div class="search-wrap">
+    <form class="search-form" id="searchForm" action="/search" method="GET">
+      <input
+        class="search-input"
+        type="text"
+        name="q"
+        placeholder="Введите название фильма, сериала, игры..."
+        value="{{.Query}}"
+        autocomplete="off"
+        autofocus
+      >
+      <button class="search-btn" type="submit" id="searchBtn">
+        НАЙТИ
+        <span class="spinner" id="spinner"></span>
+      </button>
+    </form>
+  </div>
+
+  {{if .Results}}
+    {{if gt (len .Results) 0}}
+      {{range $resultIdx, $result := .Results}}
+        {{if $result.Error}}
+          <div class="error-box">⚠ {{$result.Source}}: {{$result.Error}}</div>
+        {{else if $result.Results}}
+          <div class="status">
+            <span>Запрос: <strong>{{$result.Query}}</strong></span>
+            <span class="count">{{$result.Count}} результатов</span>
+            <span class="source">
+              <span class="dot"></span>
+              {{$result.Source}}
+            </span>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th data-sortable="name">Название</th>
+                  <th data-sortable="size">Размер</th>
+                  <th data-sortable="seeds">↑ Сиды</th>
+                  <th data-sortable="peers">↓ Пиры</th>
+                  <th>Дата</th>
+                  <th>Магнет</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{range $i, $t := $result.Results}}
+                <tr>
+                  <td class="td-num">{{add $i 1}}</td>
+                  <td class="td-name">
+                    <div class="torrent-name">{{$t.Name}}</div>
+                  </td>
+                  <td class="td-size">{{if $t.Size}}{{$t.Size}}{{else}}—{{end}}</td>
+                  <td class="td-seeds">{{if $t.Seeds}}{{$t.Seeds}}{{else}}—{{end}}</td>
+                  <td class="td-peers">{{if $t.Peers}}{{$t.Peers}}{{else}}—{{end}}</td>
+                  <td class="td-date">{{if $t.Date}}{{$t.Date}}{{else}}—{{end}}</td>
+                  <td class="td-magnet">
+                    <a class="btn-magnet" href="{{$t.Magnet}}" title="Открыть магнет-ссылку">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9v4h2V9c0-2.76 2.24-5 5-5s5 2.24 5 5v4h2V9c0-3.87-3.13-7-7-7zm-1 10v8h2v-8h-2z"/>
+                      </svg>
+                      MAGNET
+                    </a>
+                    <button class="btn-copy" onclick="copyMagnet(this, '{{$t.Magnet}}')" title="Скопировать">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+          </div>
+        {{else}}
+          <div class="empty-state">
+            <div class="icon">🔍</div>
+            <h2>{{$result.Source}}: Ничего не найдено</h2>
+            <p>По запросу «{{$result.Query}}» результатов не найдено.</p>
+          </div>
+        {{end}}
+      {{end}}
+    {{else}}
+      <div class="welcome">
+        <h2>Поиск по торрент-трекерам</h2>
+        <p>Введите название фильма, сериала, игры или любого контента.<br>
+        Программа найдёт раздачи и покажет магнет-ссылки.</p>
+        <div class="sources">
+          <div class="source-tag">
+            <span class="active-dot"></span>
+            Готово к поиску
+          </div>
+        </div>
+      </div>
+    {{end}}
+  {{else}}
+    <div class="welcome">
+      <h2>Поиск по торрент-трекерам</h2>
+      <p>Введите название фильма, сериала, игры или любого контента.<br>
+      Программа найдёт раздачи и покажет магнет-ссылки.</p>
+      <div class="sources">
+        <div class="source-tag">
+          <span class="active-dot"></span>
+          Готово к поиску
+        </div>
+      </div>
+    </div>
+  {{end}}
+</div>
+
+<script>
+document.getElementById('searchForm').addEventListener('submit', function() {
+  document.getElementById('searchBtn').classList.add('searching');
+});
+
+function copyMagnet(btn, magnet) {
+  navigator.clipboard.writeText(magnet).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+    }, 2000);
+  });
+}
+
+// Инициализация сортировки таблиц
+function initTableSorting() {
+  document.querySelectorAll('table').forEach(table => {
+    const headers = table.querySelectorAll('th[data-sortable]');
+    
+    headers.forEach(header => {
+      header.addEventListener('click', function() {
+        const sortBy = this.dataset.sortable;
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        
+        // Определяем направление сортировки
+        let isAsc = !this.classList.contains('sort-asc');
+        
+        // Очищаем все активные сортировки
+        headers.forEach(h => {
+          h.classList.remove('active', 'sort-asc', 'sort-desc');
+        });
+        
+        // Устанавливаем активную сортировку
+        this.classList.add('active', isAsc ? 'sort-asc' : 'sort-desc');
+        
+        // Сортируем строки
+        rows.sort((a, b) => {
+          let aVal, bVal;
+          
+          switch(sortBy) {
+            case 'name':
+              aVal = a.querySelector('.torrent-name')?.textContent?.toLowerCase() || '';
+              bVal = b.querySelector('.torrent-name')?.textContent?.toLowerCase() || '';
+              break;
+            case 'size':
+              aVal = parseSize(a.querySelector('.td-size')?.textContent || '0');
+              bVal = parseSize(b.querySelector('.td-size')?.textContent || '0');
+              break;
+            case 'seeds':
+              aVal = parseNumber(a.querySelector('.td-seeds')?.textContent || '0');
+              bVal = parseNumber(b.querySelector('.td-seeds')?.textContent || '0');
+              break;
+            case 'peers':
+              aVal = parseNumber(a.querySelector('.td-peers')?.textContent || '0');
+              bVal = parseNumber(b.querySelector('.td-peers')?.textContent || '0');
+              break;
+            default:
+              return 0;
+          }
+          
+          // Сравниваем значения
+          if (aVal < bVal) return isAsc ? -1 : 1;
+          if (aVal > bVal) return isAsc ? 1 : -1;
+          return 0;
+        });
+        
+        // Переставляем строки в таблице
+        rows.forEach((row, index) => {
+          row.style.animationDelay = (index * 20) + 'ms';
+          tbody.appendChild(row);
+        });
+      });
+    });
+  });
+}
+
+// Парсинг числовых значений (обработка форматов типа "100", "1,234", "—")
+function parseNumber(str) {
+  if (!str || str === '—') return 0;
+  return parseInt(str.toString().replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+// Парсинг размера файла (обработка форматов типа "1 GB", "512 MB", "1.5 GB")
+function parseSize(str) {
+  if (!str || str === '—') return 0;
+  
+  const units = { 'B': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3, 'TB': 1024**4 };
+  const match = str.match(/([0-9.,]+)\s*([A-Z]+)/i);
+  
+  if (!match) return 0;
+  
+  const value = parseFloat(match[1].replace(',', '.'));
+  const unit = match[2].toUpperCase();
+  
+  return value * (units[unit] || 1);
+}
+
+// Инициализируем сортировку при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+  initTableSorting();
+  
+  // Анимация появления строк таблицы
+  document.querySelectorAll('tbody tr').forEach((tr, i) => {
+    tr.style.animationDelay = (i * 30) + 'ms';
+  });
+});
+</script>
+</body>
+</html>
