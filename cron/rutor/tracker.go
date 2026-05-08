@@ -40,7 +40,7 @@ func (t *Tracker) Name() string {
 	return "rutor.info"
 }
 
-func (t *Tracker) Search(query string) *tracker.SearchResult {
+func (t *Tracker) Search(query string, sort int) *tracker.SearchResult {
 	result := &tracker.SearchResult{Query: query}
 
 	var mu sync.Mutex
@@ -52,9 +52,8 @@ func (t *Tracker) Search(query string) *tracker.SearchResult {
 		go func(cat string) {
 			defer wg.Done()
 
-			//			encoded := strings.ReplaceAll(url.PathEscape(query), "%20", "+")
-			encoded := strings.ReplaceAll(query, " ", "%20")
-			searchURL := fmt.Sprintf("https://%s/search/0/%s/000/0/%s", t.cfg.Domain, cat, encoded)
+			encoded := strings.ReplaceAll(query, " ", "+")
+			searchURL := fmt.Sprintf("https://%s/search/0/%s/000/%d/%s", t.cfg.Domain, cat, sort, encoded)
 
 			client := &http.Client{Timeout: 15 * time.Second}
 			req, err := http.NewRequest("GET", searchURL, nil)
@@ -66,7 +65,7 @@ func (t *Tracker) Search(query string) *tracker.SearchResult {
 			resp, err := client.Do(req)
 			if err != nil {
 				// Пробуем альтернативный домен
-				altURL := fmt.Sprintf("https://%s/search/%s/0/000/0/%s", t.cfg.AltDomain, cat, encoded)
+				altURL := fmt.Sprintf("https://%s/search/0/%s/000/%d/%s", t.cfg.AltDomain, cat, sort, encoded)
 				req2, err2 := http.NewRequest("GET", altURL, nil)
 				if err2 != nil {
 					return

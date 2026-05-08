@@ -43,10 +43,7 @@ type Router struct {
 }
 
 type PageData struct {
-	Query        string
-	Results      []*tracker.SearchResult
-	TrackersJSON template.JS // JSON array of tracker names
-	SelectedJSON template.JS // JSON array of selected tracker names (empty = all)
+	TrackersJSON template.JS
 }
 
 type AdminPageData struct {
@@ -96,7 +93,6 @@ func New(factories map[string]TrackerFactory, templateDir, cfgPath string, cfg *
 
 	r.Mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(absStatic))))
 	r.Mux.HandleFunc("/", r.handleIndex)
-	r.Mux.HandleFunc("/search", r.handleSearch)
 	r.Mux.HandleFunc("/api/search", r.handleAPISearch)
 	r.Mux.HandleFunc("/api/ui/search", r.handleUISearch)
 	r.Mux.HandleFunc("/api/trackers/status", r.handleTrackersStatus)
@@ -212,49 +208,44 @@ func (r *Router) handleIndex(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
-	r.renderPage(w, PageData{
-		Results:      make([]*tracker.SearchResult, 0),
-		TrackersJSON: r.trackerNamesJSON(),
-		SelectedJSON: template.JS("[]"),
-	})
-}
-
-func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
-	query := strings.TrimSpace(req.URL.Query().Get("q"))
-	if query == "" {
-		http.Redirect(w, req, "/", http.StatusSeeOther)
-		return
-	}
-
-	selectedNames := req.URL.Query()["trackers"]
-	selectedJSON, _ := json.Marshal(selectedNames)
-
-	r.renderPage(w, PageData{
-		Query:        query,
-		TrackersJSON: r.trackerNamesJSON(),
-		SelectedJSON: template.JS(selectedJSON),
-	})
+	r.renderPage(w, PageData{TrackersJSON: r.trackerNamesJSON()})
 }
 
 func (r *Router) handleUISearch(w http.ResponseWriter, req *http.Request) {
-	query := strings.TrimSpace(req.URL.Query().Get("q"))
 	w.Header().Set("Content-Type", "application/json")
 
+	if req.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
+		return
+	}
+
+	var body struct {
+		Query    string   `json:"query"`
+		Trackers []string `json:"trackers"`
+		Sort     int      `json:"sort"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request"})
+		return
+	}
+
+	query := strings.TrimSpace(body.Query)
 	if query == "" {
 		json.NewEncoder(w).Encode(map[string]string{"error": "empty query"})
 		return
 	}
 
-	selectedNames := req.URL.Query()["trackers"]
 	var searchTrackers []tracker.Tracker
-	if len(selectedNames) > 0 {
-		searchTrackers = r.trackersForNames(selectedNames)
+	if len(body.Trackers) > 0 {
+		searchTrackers = r.trackersForNames(body.Trackers)
 	}
 	if len(searchTrackers) == 0 {
 		searchTrackers = r.allTrackersList()
 	}
 
-	results := r.searchTrackers(searchTrackers, query)
+	results := r.searchTrackers(searchTrackers, query, body.Sort)
 	json.NewEncoder(w).Encode(results)
 }
 
@@ -294,7 +285,7 @@ func (r *Router) handleAPISearch(w http.ResponseWriter, req *http.Request) {
 	}
 
 	trackers := r.trackersForNames(api.Trackers)
-	results := r.searchTrackers(trackers, query)
+	results := r.searchTrackers(trackers, query, 0)
 	json.NewEncoder(w).Encode(results)
 }
 
@@ -458,14 +449,14 @@ func (r *Router) trackerNames() []string {
 	return names
 }
 
-func (r *Router) searchTrackers(trackers []tracker.Tracker, query string) []*tracker.SearchResult {
+func (r *Router) searchTrackers(trackers []tracker.Tracker, query string, sortBy int) []*tracker.SearchResult {
 	results := make([]*tracker.SearchResult, len(trackers))
 	var wg sync.WaitGroup
 	for i, t := range trackers {
 		wg.Add(1)
 		go func(idx int, tr tracker.Tracker) {
 			defer wg.Done()
-			result := tr.Search(query)
+			result := tr.Search(query, sortBy)
 			result.Source = tr.Name()
 			results[idx] = result
 		}(i, t)

@@ -24,13 +24,12 @@
   </header>
 
   <div class="search-wrap">
-    <form class="search-form" id="searchForm" action="/search" method="GET">
+    <form class="search-form" id="searchForm">
       <input
         class="search-input"
         type="text"
         name="q"
         placeholder="Введите название фильма, сериала, игры..."
-        value="{{.Query}}"
         autocomplete="off"
         autofocus
       >
@@ -41,13 +40,27 @@
     </form>
   </div>
 
+  <div class="sort-bar">
+    <label class="sort-option">
+      <input type="radio" name="sort" value="0" checked>
+      <span>По дате</span>
+    </label>
+    <label class="sort-option">
+      <input type="radio" name="sort" value="4">
+      <span>По сидам</span>
+    </label>
+    <label class="sort-option">
+      <input type="radio" name="sort" value="8">
+      <span>По размеру</span>
+    </label>
+  </div>
+
   <div class="trackers-bar" id="trackers-bar"></div>
   <div id="results-area"></div>
 </div>
 
 <script>
 const TRACKERS = {{.TrackersJSON}};
-const SELECTED = {{.SelectedJSON}};
 
 // ─── Theme toggle ──────────────────────────────────────────
 (function() {
@@ -75,7 +88,7 @@ const SELECTED = {{.SelectedJSON}};
 })();
 
 // ─── Tracker bar ───────────────────────────────────────────
-let enabledTrackers = new Set(SELECTED.length > 0 ? SELECTED : TRACKERS);
+let enabledTrackers = new Set(TRACKERS);
 let trackerStatus   = {};
 
 function fmtTime(iso) {
@@ -315,13 +328,15 @@ function renderResults(results, query) {
 async function doSearch(query, trackerList) {
   document.getElementById('searchBtn').classList.add('searching');
 
-  let url = '/api/ui/search?q=' + encodeURIComponent(query);
-  if (trackerList && trackerList.length > 0) {
-    trackerList.forEach(n => { url += '&trackers=' + encodeURIComponent(n); });
-  }
+  const sortEl = document.querySelector('input[name="sort"]:checked');
+  const sort = sortEl ? parseInt(sortEl.value, 10) : 0;
 
   try {
-    const resp = await fetch(url);
+    const resp = await fetch('/api/ui/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, trackers: trackerList || [], sort })
+    });
     const data = await resp.json();
     if (!resp.ok) {
       showError(data.error || 'Ошибка запроса');
@@ -373,44 +388,14 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
   if (!query) return;
 
   const selected = [...enabledTrackers];
-  const params = new URLSearchParams();
-  params.set('q', query);
-  if (selected.length < TRACKERS.length) {
-    selected.forEach(n => params.append('trackers', n));
-  }
-  history.pushState({ query, trackers: selected }, '', '/search?' + params.toString());
-
   doSearch(query, selected.length < TRACKERS.length ? selected : []);
-});
-
-// Browser back/forward support
-window.addEventListener('popstate', function(e) {
-  const s = e.state;
-  if (s && s.query) {
-    document.querySelector('.search-input').value = s.query;
-    enabledTrackers = new Set(s.trackers && s.trackers.length > 0 ? s.trackers : TRACKERS);
-    renderTrackerBar();
-    doSearch(s.query, s.trackers && s.trackers.length < TRACKERS.length ? s.trackers : []);
-  } else {
-    document.querySelector('.search-input').value = '';
-    enabledTrackers = new Set(TRACKERS);
-    renderTrackerBar();
-    showWelcome();
-  }
 });
 
 // ─── Init ──────────────────────────────────────────────────
 renderTrackerBar();
 fetchTrackerStatus();
 setInterval(fetchTrackerStatus, 60_000);
-
-const _initQuery = document.querySelector('.search-input').value.trim();
-if (_initQuery) {
-  const _initTrackers = SELECTED.length > 0 && SELECTED.length < TRACKERS.length ? [...SELECTED] : [];
-  doSearch(_initQuery, _initTrackers);
-} else {
-  showWelcome();
-}
+showWelcome();
 </script>
 </body>
 </html>

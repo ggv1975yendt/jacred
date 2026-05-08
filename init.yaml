@@ -5,7 +5,7 @@ apis:
       key: mykey123
       trackers: []
     - name: Test API 2
-      key: "1"
+      key: 5464fc1dd342e7c6dcf7f1548357b5436e3d010dccaecd4f0d110e9e1fd23f1f
       trackers:
         - rutor.info
 trackers:

@@ -23,5 +23,5 @@ type SearchResult struct {
 // Tracker interface that all trackers must implement
 type Tracker interface {
 	Name() string
-	Search(query string) *SearchResult
+	Search(query string, sort int) *SearchResult
 }

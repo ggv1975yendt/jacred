@@ -305,6 +305,43 @@ header.index-header .logo {
 
 .searching .spinner { display: inline-block; }
 
+/* Sort bar */
+.sort-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  padding: 0 0 16px;
+}
+
+.sort-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color .2s, color .2s, background .2s;
+  user-select: none;
+}
+
+.sort-option input[type="radio"] { display: none; }
+
+.sort-option:hover {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.sort-option:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-chip-bg);
+}
+
 /* Tracker bar */
 .trackers-bar {
   display: flex;
