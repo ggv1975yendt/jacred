@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -53,8 +52,9 @@ func (t *Tracker) Search(query string) *tracker.SearchResult {
 		go func(cat string) {
 			defer wg.Done()
 
-			encoded := strings.ReplaceAll(url.PathEscape(query), "%20", "+")
-			searchURL := fmt.Sprintf("https://%s/search/%s/0/000/0/%s", t.cfg.Domain, cat, encoded)
+			//			encoded := strings.ReplaceAll(url.PathEscape(query), "%20", "+")
+			encoded := strings.ReplaceAll(query, " ", "%20")
+			searchURL := fmt.Sprintf("https://%s/search/0/%s/000/0/%s", t.cfg.Domain, cat, encoded)
 
 			client := &http.Client{Timeout: 15 * time.Second}
 			req, err := http.NewRequest("GET", searchURL, nil)
