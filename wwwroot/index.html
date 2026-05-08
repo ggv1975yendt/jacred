@@ -46,7 +46,7 @@
       <span>По дате</span>
     </label>
     <label class="sort-option">
-      <input type="radio" name="sort" value="4">
+      <input type="radio" name="sort" value="2">
       <span>По сидам</span>
     </label>
     <label class="sort-option">
@@ -289,13 +289,26 @@ function renderResults(results, query) {
 
       tr.innerHTML = `
         <td class="td-num">${i + 1}</td>
-        <td class="td-name"><div class="torrent-name">${esc(t.name)}</div></td>
+        <td class="td-name"><div class="torrent-name"></div></td>
         <td class="td-size">${esc(t.size  || '—')}</td>
         <td class="td-seeds">${esc(t.seeds || '—')}</td>
         <td class="td-peers">${esc(t.peers || '—')}</td>
         <td class="td-date">${esc(t.date  || '—')}</td>
         <td class="td-magnet"></td>
       `;
+
+      // Build name cell via DOM to keep URL safe from XSS
+      const nameDiv = tr.querySelector('.torrent-name');
+      if (t.url) {
+        const a = document.createElement('a');
+        a.href = t.url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = t.name || '';
+        nameDiv.appendChild(a);
+      } else {
+        nameDiv.textContent = t.name || '';
+      }
 
       // Build magnet cell via DOM (keeps href safe from innerHTML XSS)
       const cell   = tr.querySelector('.td-magnet');

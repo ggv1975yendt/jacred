@@ -14,9 +14,12 @@ type APIConfig struct {
 }
 
 type TrackerConfig struct {
+	Enable     bool     `yaml:"enable" json:"enable"`
 	Domain     string   `yaml:"domain" json:"domain"`
 	AltDomain  string   `yaml:"alt_domain" json:"alt_domain"`
 	Categories []string `yaml:"categories" json:"categories"`
+	Username   string   `yaml:"username,omitempty" json:"username,omitempty"`
+	Password   string   `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
 type Config struct {

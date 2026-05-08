@@ -4,7 +4,10 @@ import (
 	"log"
 
 	"jacred/config"
+	"jacred/cron/kinozal"
 	"jacred/cron/rutor"
+	"jacred/cron/rutracker"
+	"jacred/cron/xxxclub"
 	"jacred/server"
 	"jacred/server/router"
 	"jacred/tracker"
@@ -19,6 +22,15 @@ func main() {
 	factories := map[string]router.TrackerFactory{
 		"rutor.info": func(tcfg config.TrackerConfig) tracker.Tracker {
 			return rutor.New(tcfg)
+		},
+		"xxxclub.to": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return xxxclub.New(tcfg)
+		},
+		"kinozal.tv": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return kinozal.New(tcfg)
+		},
+		"rutracker.org": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return rutracker.New(tcfg)
 		},
 	}
 

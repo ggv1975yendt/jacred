@@ -263,13 +263,49 @@ function renderTrackers() {
 
 function buildTrackerCard(name) {
   const tcfg = state.trackers[name] || {};
+  const enabled = tcfg.enable === true;
   const card = document.createElement('div');
   card.className = 'api-card';
   card.dataset.trackerName = name;
 
   const hdr = document.createElement('div');
   hdr.className = 'api-card-header';
-  hdr.innerHTML = `<span class="api-num">${escHtml(name)}</span>`;
+
+  const title = document.createElement('span');
+  title.className = 'api-num';
+  title.textContent = name;
+  hdr.appendChild(title);
+
+  const toggleLabel = document.createElement('label');
+  toggleLabel.className = 'tracker-enable-toggle';
+  toggleLabel.title = 'Включить / выключить трекер';
+
+  const toggleInput = document.createElement('input');
+  toggleInput.type = 'checkbox';
+  toggleInput.checked = enabled;
+  toggleInput.addEventListener('change', function() {
+    if (!state.trackers[name]) state.trackers[name] = {};
+    state.trackers[name].enable = this.checked;
+  });
+
+  const toggleTrack = document.createElement('span');
+  toggleTrack.className = 'toggle-track';
+  const toggleThumb = document.createElement('span');
+  toggleThumb.className = 'toggle-thumb';
+  toggleTrack.appendChild(toggleThumb);
+
+  const toggleText = document.createElement('span');
+  toggleText.className = 'toggle-text';
+  toggleText.textContent = enabled ? 'Включён' : 'Выключен';
+  toggleInput.addEventListener('change', function() {
+    toggleText.textContent = this.checked ? 'Включён' : 'Выключен';
+  });
+
+  toggleLabel.appendChild(toggleInput);
+  toggleLabel.appendChild(toggleTrack);
+  toggleLabel.appendChild(toggleText);
+  hdr.appendChild(toggleLabel);
+
   card.appendChild(hdr);
 
   const body = document.createElement('div');
@@ -316,6 +352,38 @@ function buildTrackerCard(name) {
   catField.appendChild(catHint);
   catRow.appendChild(catField);
   body.appendChild(catRow);
+
+  // Username & password — показываем только если уже заданы или есть смысл
+  body.appendChild(makeTextRow('Пользователь', 'login', 'username', tcfg.username));
+
+  // Password field (type=password for masking)
+  const passRow = document.createElement('div');
+  passRow.className = 'field-row';
+  passRow.innerHTML = '<span class="field-label">Пароль</span>';
+  const passGroup = document.createElement('div');
+  passGroup.className = 'key-group field-input';
+  const passInp = document.createElement('input');
+  passInp.className = 'input';
+  passInp.type = 'password';
+  passInp.placeholder = '••••••••';
+  passInp.value = tcfg.password || '';
+  passInp.style.flex = '1';
+  passInp.addEventListener('input', function() {
+    if (!state.trackers[name]) state.trackers[name] = {};
+    state.trackers[name].password = this.value;
+  });
+  const eyeBtn = document.createElement('button');
+  eyeBtn.className = 'btn-icon';
+  eyeBtn.type = 'button';
+  eyeBtn.title = 'Показать / скрыть пароль';
+  eyeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>';
+  eyeBtn.addEventListener('click', function() {
+    passInp.type = passInp.type === 'password' ? 'text' : 'password';
+  });
+  passGroup.appendChild(passInp);
+  passGroup.appendChild(eyeBtn);
+  passRow.appendChild(passGroup);
+  body.appendChild(passRow);
 
   card.appendChild(body);
   return card;

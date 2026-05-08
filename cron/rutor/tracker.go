@@ -62,6 +62,7 @@ func (t *Tracker) Search(query string, sort int) *tracker.SearchResult {
 			}
 
 			setDefaultHeaders(req)
+			baseURL := "https://" + t.cfg.Domain
 			resp, err := client.Do(req)
 			if err != nil {
 				// Пробуем альтернативный домен
@@ -75,6 +76,7 @@ func (t *Tracker) Search(query string, sort int) *tracker.SearchResult {
 				if err != nil {
 					return
 				}
+				baseURL = "https://" + t.cfg.AltDomain
 			}
 			defer resp.Body.Close()
 
@@ -93,7 +95,7 @@ func (t *Tracker) Search(query string, sort int) *tracker.SearchResult {
 				}
 			}
 
-			torrents := parseHTML(bodyStr)
+			torrents := parseHTML(bodyStr, baseURL)
 
 			mu.Lock()
 			allTorrents = append(allTorrents, torrents...)
@@ -116,7 +118,7 @@ func setDefaultHeaders(req *http.Request) {
 	req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7")
 }
 
-func parseHTML(htmlContent string) []tracker.Torrent {
+func parseHTML(htmlContent, baseURL string) []tracker.Torrent {
 	var torrents []tracker.Torrent
 
 	doc, err := html.Parse(strings.NewReader(htmlContent))
@@ -127,7 +129,7 @@ func parseHTML(htmlContent string) []tracker.Torrent {
 	var traverse func(*html.Node)
 	traverse = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "tr" {
-			if t := extractTorrentFromRow(n); t != nil {
+			if t := extractTorrentFromRow(n, baseURL); t != nil {
 				torrents = append(torrents, *t)
 			}
 		}
@@ -140,7 +142,7 @@ func parseHTML(htmlContent string) []tracker.Torrent {
 	return torrents
 }
 
-func extractTorrentFromRow(tr *html.Node) *tracker.Torrent {
+func extractTorrentFromRow(tr *html.Node, baseURL string) *tracker.Torrent {
 	var cells []*html.Node
 	for c := tr.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type == html.ElementNode && c.Data == "td" {
@@ -171,6 +173,11 @@ func extractTorrentFromRow(tr *html.Node) *tracker.Torrent {
 			} else if strings.Contains(href, "/torrent/") && text != "" && !strings.Contains(text, "↓") {
 				if torrent.Name == "" {
 					torrent.Name = cleanText(text)
+					if strings.HasPrefix(href, "/") {
+						torrent.URL = baseURL + href
+					} else {
+						torrent.URL = href
+					}
 				}
 			}
 		}

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -171,9 +172,13 @@ func pingHost(domain string) bool {
 // ─── Helpers ───────────────────────────────────────────────
 
 func buildTrackers(factories map[string]TrackerFactory, cfg *config.Config) map[string]tracker.Tracker {
-	result := make(map[string]tracker.Tracker, len(factories))
+	result := make(map[string]tracker.Tracker)
 	for name, factory := range factories {
-		result[name] = factory(cfg.Trackers[name])
+		tcfg := cfg.Trackers[name]
+		if !tcfg.Enable {
+			continue
+		}
+		result[name] = factory(tcfg)
 	}
 	return result
 }
@@ -245,8 +250,8 @@ func (r *Router) handleUISearch(w http.ResponseWriter, req *http.Request) {
 		searchTrackers = r.allTrackersList()
 	}
 
-	results := r.searchTrackers(searchTrackers, query, body.Sort)
-	json.NewEncoder(w).Encode(results)
+	rawResults := r.searchTrackers(searchTrackers, query, body.Sort)
+	json.NewEncoder(w).Encode(mergeAndSort(rawResults, body.Sort))
 }
 
 func (r *Router) renderPage(w http.ResponseWriter, data PageData) {
@@ -314,7 +319,7 @@ func (r *Router) handleAdmin(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	names := r.trackerNames()
+	names := r.allFactoryNames()
 	trackersJSON, err := json.Marshal(names)
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -447,6 +452,108 @@ func (r *Router) trackerNames() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// allFactoryNames returns every registered tracker name regardless of enabled state.
+// Used by the admin panel so all trackers can be configured.
+func (r *Router) allFactoryNames() []string {
+	names := make([]string, 0, len(r.factories))
+	for name := range r.factories {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func parseSeeds(s string) int {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	n, _ := strconv.Atoi(b.String())
+	return n
+}
+
+func parseSizeBytes(s string) float64 {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "—" {
+		return 0
+	}
+	i := 0
+	for i < len(s) && (s[i] >= '0' && s[i] <= '9' || s[i] == '.' || s[i] == ',') {
+		i++
+	}
+	if i == 0 {
+		return 0
+	}
+	numStr := strings.ReplaceAll(s[:i], ",", ".")
+	unitStr := strings.ToUpper(strings.TrimSpace(s[i:]))
+	val, _ := strconv.ParseFloat(numStr, 64)
+	switch unitStr {
+	case "TB":
+		return val * 1099511627776
+	case "GB":
+		return val * 1073741824
+	case "MB":
+		return val * 1048576
+	case "KB":
+		return val * 1024
+	default:
+		return val
+	}
+}
+
+// mergeAndSort объединяет результаты всех трекеров в один список и сортирует по убыванию.
+// Ошибочные результаты передаются без изменений, успешные — объединяются.
+func mergeAndSort(results []*tracker.SearchResult, sortBy int) []*tracker.SearchResult {
+	var errors []*tracker.SearchResult
+	var allTorrents []tracker.Torrent
+	var sources []string
+	query := ""
+
+	for _, r := range results {
+		if r == nil {
+			continue
+		}
+		if query == "" && r.Query != "" {
+			query = r.Query
+		}
+		if r.Error != "" {
+			errors = append(errors, r)
+			continue
+		}
+		allTorrents = append(allTorrents, r.Results...)
+		if r.Source != "" && len(r.Results) > 0 {
+			sources = append(sources, r.Source)
+		}
+	}
+
+	sort.SliceStable(allTorrents, func(i, j int) bool {
+		switch sortBy {
+		case 2: // по сидам
+			return parseSeeds(allTorrents[i].Seeds) > parseSeeds(allTorrents[j].Seeds)
+		case 8: // по размеру
+			return parseSizeBytes(allTorrents[i].Size) > parseSizeBytes(allTorrents[j].Size)
+		default: // по дате
+			return allTorrents[i].Date > allTorrents[j].Date
+		}
+	})
+
+	sourceName := strings.Join(sources, ", ")
+	if sourceName == "" {
+		sourceName = "Все трекеры"
+	}
+
+	merged := &tracker.SearchResult{
+		Query:   query,
+		Source:  sourceName,
+		Count:   len(allTorrents),
+		Results: allTorrents,
+	}
+
+	return append(errors, merged)
 }
 
 func (r *Router) searchTrackers(trackers []tracker.Tracker, query string, sortBy int) []*tracker.SearchResult {

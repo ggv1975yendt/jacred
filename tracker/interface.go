@@ -3,6 +3,7 @@ package tracker
 // Torrent represents a torrent entry
 type Torrent struct {
 	Name     string `json:"name"`
+	URL      string `json:"url,omitempty"`
 	Magnet   string `json:"magnet"`
 	Size     string `json:"size"`
 	Seeds    string `json:"seeds"`
