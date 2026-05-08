@@ -2,32 +2,33 @@ package main
 
 import (
 	"log"
-	"os"
 
+	"jacred/config"
 	"jacred/cron/rutor"
 	"jacred/server"
+	"jacred/server/router"
 	"jacred/tracker"
 )
 
 func main() {
-	port := "9117"
-	if p := os.Getenv("PORT"); p != "" {
-		port = p
-	}
-
-	// Create all trackers
-	trackers := []tracker.Tracker{
-		rutor.New(),
-		// Add more trackers here in the future
-	}
-
-	svr, err := server.NewServer(trackers, "wwwroot/index.html")
+	cfg, err := config.Load("init.yaml")
 	if err != nil {
-		log.Fatalf("Failed to load template: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	log.Printf("🚀 Torrent Search started on http://localhost:%s", port)
-	if err := svr.Start(":" + port); err != nil {
+	factories := map[string]router.TrackerFactory{
+		"rutor.info": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return rutor.New(tcfg)
+		},
+	}
+
+	svr, err := server.NewServer(factories, "wwwroot", "init.yaml", cfg)
+	if err != nil {
+		log.Fatalf("Failed to create server: %v", err)
+	}
+
+	log.Printf("🚀 Torrent Search started on http://localhost:%s", cfg.Port)
+	if err := svr.Start(":" + cfg.Port); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }

@@ -1,0 +1,30 @@
+[Unit]
+Description=JacRed Torrent Search Service
+Documentation=https://github.com/your-org/jacred
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=jacred
+Group=jacred
+
+WorkingDirectory=/opt/jacred
+ExecStart=/usr/local/bin/jacred
+
+Restart=on-failure
+RestartSec=5s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jacred
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/jacred
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

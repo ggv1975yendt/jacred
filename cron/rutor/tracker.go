@@ -14,15 +14,27 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding/charmap"
 
+	"jacred/config"
 	"jacred/tracker"
 )
 
-var allowedCategories = []string{"1", "5", "4", "16", "12", "6", "7", "10", "17", "13", "15"}
+var defaultCategories = []string{"1", "5", "4", "16", "12", "6", "7", "10", "17", "13", "15"}
 
-type Tracker struct{}
+type Tracker struct {
+	cfg config.TrackerConfig
+}
 
-func New() *Tracker {
-	return &Tracker{}
+func New(cfg config.TrackerConfig) *Tracker {
+	if cfg.Domain == "" {
+		cfg.Domain = "rutor.info"
+	}
+	if cfg.AltDomain == "" {
+		cfg.AltDomain = "rutor.is"
+	}
+	if len(cfg.Categories) == 0 {
+		cfg.Categories = defaultCategories
+	}
+	return &Tracker{cfg: cfg}
 }
 
 func (t *Tracker) Name() string {
@@ -36,13 +48,13 @@ func (t *Tracker) Search(query string) *tracker.SearchResult {
 	var wg sync.WaitGroup
 	var allTorrents []tracker.Torrent
 
-	for _, category := range allowedCategories {
+	for _, category := range t.cfg.Categories {
 		wg.Add(1)
 		go func(cat string) {
 			defer wg.Done()
 
 			encoded := url.PathEscape(query)
-			searchURL := fmt.Sprintf("https://rutor.info/search/%s/0/000/0/%s", cat, encoded)
+			searchURL := fmt.Sprintf("https://%s/search/%s/0/000/0/%s", t.cfg.Domain, cat, encoded)
 
 			client := &http.Client{Timeout: 15 * time.Second}
 			req, err := http.NewRequest("GET", searchURL, nil)
@@ -54,8 +66,11 @@ func (t *Tracker) Search(query string) *tracker.SearchResult {
 			resp, err := client.Do(req)
 			if err != nil {
 				// Пробуем альтернативный домен
-				searchURL = fmt.Sprintf("https://rutor.is/search/%s/0/000/0/%s", cat, encoded)
-				req2, _ := http.NewRequest("GET", searchURL, nil)
+				altURL := fmt.Sprintf("https://%s/search/%s/0/000/0/%s", t.cfg.AltDomain, cat, encoded)
+				req2, err2 := http.NewRequest("GET", altURL, nil)
+				if err2 != nil {
+					return
+				}
 				setDefaultHeaders(req2)
 				resp, err = client.Do(req2)
 				if err != nil {
@@ -89,7 +104,6 @@ func (t *Tracker) Search(query string) *tracker.SearchResult {
 
 	wg.Wait()
 
-	// Удаляем дубликаты по InfoHash
 	uniqueTorrents := removeDuplicates(allTorrents)
 
 	result.Results = uniqueTorrents
@@ -250,7 +264,6 @@ func isDate(s string) bool {
 	return dateRe.MatchString(s)
 }
 
-// removeDuplicates удаляет торренты-дубликаты по InfoHash
 func removeDuplicates(torrents []tracker.Torrent) []tracker.Torrent {
 	seen := make(map[string]bool)
 	var result []tracker.Torrent

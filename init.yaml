@@ -1,0 +1,26 @@
+port: "9117"
+apis:
+    - name: Test API
+      key: mykey123
+      trackers:
+        - rutor.info
+    - name: Test API 2
+      key: "1"
+      trackers:
+        - rutor.info
+trackers:
+    rutor.info:
+        domain: rutor.info
+        alt_domain: rutor.is
+        categories:
+            - "1"
+            - "5"
+            - "4"
+            - "16"
+            - "12"
+            - "6"
+            - "7"
+            - "10"
+            - "17"
+            - "13"
+            - "15"

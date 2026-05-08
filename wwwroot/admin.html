@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TorrentSeek — Администрирование</title>
+<script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container container--narrow">
+
+  <header class="admin-header">
+    <div class="logo">Torrent<span>Seek</span></div>
+    <div class="header-divider"></div>
+    <div class="page-title">Администрирование</div>
+    <div class="header-end">
+      <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему"></button>
+      <a class="back-link" href="/">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+        Поиск
+      </a>
+    </div>
+  </header>
+
+  <!-- Server settings -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Сервер</div>
+    </div>
+    <div class="section-body">
+      <div class="form-row">
+        <div class="form-label">Порт</div>
+        <div class="form-field">
+          <input class="input" id="cfg-port" type="text" placeholder="9117" maxlength="5">
+          <div class="port-warning" id="port-warning">
+            ⚠ Изменение порта вступит в силу после перезапуска сервера
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APIs -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">API</div>
+      <button class="btn-add" onclick="addAPI()">+ Добавить API</button>
+    </div>
+    <div id="apis-container"></div>
+  </div>
+
+  <!-- Tracker settings -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Трекеры</div>
+    </div>
+    <div id="trackers-container"></div>
+  </div>
+
+  <!-- Save bar -->
+  <div class="save-bar">
+    <button class="btn-save" id="btn-save" onclick="saveConfig()">
+      Сохранить
+      <span class="spinner" id="save-spinner"></span>
+    </button>
+    <div class="save-status" id="save-status"></div>
+  </div>
+
+</div>
+
+<script>
+const CONFIG = {{.ConfigJSON}};
+const AVAILABLE_TRACKERS = {{.TrackersJSON}};
+
+let state = {
+  port: CONFIG.port || '9117',
+  apis: (CONFIG.apis || []).map(a => ({
+    name: a.name || '',
+    key: a.key || '',
+    trackers: a.trackers || []
+  })),
+  trackers: CONFIG.trackers || {}
+};
+
+const initialPort = state.port;
+
+// ─── Boot ─────────────────────────────────────────────────
+document.getElementById('cfg-port').value = state.port;
+document.getElementById('cfg-port').addEventListener('input', function() {
+  document.getElementById('port-warning').classList.toggle('visible', this.value.trim() !== initialPort);
+});
+
+renderAPIs();
+renderTrackers();
+
+// ─── Theme toggle ──────────────────────────────────────────
+(function() {
+  var SUN  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>';
+  var MOON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>';
+
+  function applyTheme(theme) {
+    var btn = document.getElementById('themeToggle');
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      btn.innerHTML = MOON + ' Тёмная';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      btn.innerHTML = SUN + ' Светлая';
+    }
+    try { localStorage.setItem('theme', theme); } catch(e) {}
+  }
+
+  var current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current);
+
+  document.getElementById('themeToggle').addEventListener('click', function() {
+    applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+  });
+})();
+
+// ─── Render APIs ───────────────────────────────────────────
+
+function renderAPIs() {
+  const container = document.getElementById('apis-container');
+  if (state.apis.length === 0) {
+    container.innerHTML = '<div class="apis-empty">Нет настроенных API.<br>Нажмите «+ Добавить API» чтобы создать первый.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'apis-list';
+  state.apis.forEach((api, idx) => list.appendChild(buildAPICard(api, idx)));
+  container.appendChild(list);
+}
+
+function buildAPICard(api, idx) {
+  const card = document.createElement('div');
+  card.className = 'api-card';
+  card.dataset.idx = idx;
+
+  const hdr = document.createElement('div');
+  hdr.className = 'api-card-header';
+  hdr.innerHTML = `
+    <span class="api-num">API ${idx + 1}</span>
+    <span class="api-name-preview" id="name-preview-${idx}">${escHtml(api.name || 'Без названия')}</span>
+    <button class="btn-danger btn" onclick="deleteAPI(${idx})">Удалить</button>
+  `;
+  card.appendChild(hdr);
+
+  const body = document.createElement('div');
+  body.className = 'api-card-body';
+
+  // Name
+  const nameRow = document.createElement('div');
+  nameRow.className = 'field-row';
+  nameRow.innerHTML = '<span class="field-label">Название</span>';
+  const nameInput = document.createElement('input');
+  nameInput.className = 'input field-input';
+  nameInput.type = 'text';
+  nameInput.placeholder = 'Название API';
+  nameInput.value = api.name;
+  nameInput.addEventListener('input', function() {
+    state.apis[idx].name = this.value;
+    const p = document.getElementById(`name-preview-${idx}`);
+    if (p) p.textContent = this.value || 'Без названия';
+  });
+  nameRow.appendChild(nameInput);
+  body.appendChild(nameRow);
+
+  // Key
+  const keyRow = document.createElement('div');
+  keyRow.className = 'field-row';
+  keyRow.innerHTML = '<span class="field-label">API Ключ</span>';
+  const keyGroup = document.createElement('div');
+  keyGroup.className = 'key-group';
+
+  const keyInput = document.createElement('input');
+  keyInput.className = 'input';
+  keyInput.type = 'text';
+  keyInput.id = `key-input-${idx}`;
+  keyInput.placeholder = 'Введите или сгенерируйте ключ';
+  keyInput.value = api.key;
+  keyInput.style.flex = '1';
+  keyInput.addEventListener('input', function() { state.apis[idx].key = this.value; });
+
+  const genBtn = document.createElement('button');
+  genBtn.className = 'btn-icon';
+  genBtn.title = 'Сгенерировать ключ';
+  genBtn.textContent = '⟳';
+  genBtn.onclick = () => generateKey(idx);
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'btn-icon';
+  copyBtn.id = `copy-btn-${idx}`;
+  copyBtn.title = 'Скопировать';
+  copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+  copyBtn.onclick = () => copyKey(idx);
+
+  keyGroup.appendChild(keyInput);
+  keyGroup.appendChild(genBtn);
+  keyGroup.appendChild(copyBtn);
+  keyRow.appendChild(keyGroup);
+  body.appendChild(keyRow);
+
+  // Trackers
+  if (AVAILABLE_TRACKERS.length > 0) {
+    const trRow = document.createElement('div');
+    trRow.className = 'field-row';
+    trRow.style.alignItems = 'flex-start';
+    trRow.innerHTML = '<span class="field-label" style="padding-top:8px">Трекеры</span>';
+    const grid = document.createElement('div');
+    grid.className = 'trackers-grid';
+
+    AVAILABLE_TRACKERS.forEach(name => {
+      const active = (api.trackers || []).includes(name);
+      const chip = document.createElement('label');
+      chip.className = 'tracker-chip' + (active ? ' active' : '');
+      chip.innerHTML = `<input type="checkbox" value="${escHtml(name)}" ${active ? 'checked' : ''}><span class="tracker-dot"></span>${escHtml(name)}`;
+      chip.querySelector('input').addEventListener('change', function() {
+        chip.classList.toggle('active', this.checked);
+        const list = state.apis[idx].trackers || [];
+        state.apis[idx].trackers = this.checked
+          ? [...list.filter(t => t !== name), name]
+          : list.filter(t => t !== name);
+      });
+      grid.appendChild(chip);
+    });
+
+    trRow.appendChild(grid);
+    body.appendChild(trRow);
+  }
+
+  card.appendChild(body);
+  return card;
+}
+
+// ─── Render Trackers ───────────────────────────────────────
+
+function renderTrackers() {
+  const container = document.getElementById('trackers-container');
+  if (AVAILABLE_TRACKERS.length === 0) {
+    container.innerHTML = '<div class="apis-empty">Нет зарегистрированных трекеров.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'apis-list';
+  AVAILABLE_TRACKERS.forEach(name => list.appendChild(buildTrackerCard(name)));
+  container.appendChild(list);
+}
+
+function buildTrackerCard(name) {
+  const tcfg = state.trackers[name] || {};
+  const card = document.createElement('div');
+  card.className = 'api-card';
+  card.dataset.trackerName = name;
+
+  const hdr = document.createElement('div');
+  hdr.className = 'api-card-header';
+  hdr.innerHTML = `<span class="api-num">${escHtml(name)}</span>`;
+  card.appendChild(hdr);
+
+  const body = document.createElement('div');
+  body.className = 'api-card-body';
+
+  function makeTextRow(label, placeholder, fieldKey, value) {
+    const row = document.createElement('div');
+    row.className = 'field-row';
+    row.innerHTML = `<span class="field-label">${label}</span>`;
+    const inp = document.createElement('input');
+    inp.className = 'input field-input';
+    inp.type = 'text';
+    inp.placeholder = placeholder;
+    inp.value = value || '';
+    inp.addEventListener('input', function() {
+      if (!state.trackers[name]) state.trackers[name] = {};
+      state.trackers[name][fieldKey] = this.value.trim();
+    });
+    row.appendChild(inp);
+    return row;
+  }
+
+  body.appendChild(makeTextRow('Хост', 'example.com', 'domain', tcfg.domain));
+  body.appendChild(makeTextRow('Альт. хост', 'example.is', 'alt_domain', tcfg.alt_domain));
+
+  const catRow = document.createElement('div');
+  catRow.className = 'field-row';
+  catRow.innerHTML = '<span class="field-label">Категории</span>';
+  const catField = document.createElement('div');
+  catField.className = 'field-input';
+  const catInp = document.createElement('input');
+  catInp.className = 'input';
+  catInp.type = 'text';
+  catInp.placeholder = '1, 5, 4, 16, …';
+  catInp.value = (tcfg.categories || []).join(', ');
+  catInp.addEventListener('input', function() {
+    if (!state.trackers[name]) state.trackers[name] = {};
+    state.trackers[name].categories = this.value.split(',').map(s => s.trim()).filter(Boolean);
+  });
+  const catHint = document.createElement('div');
+  catHint.className = 'input-hint';
+  catHint.textContent = 'Идентификаторы категорий через запятую';
+  catField.appendChild(catInp);
+  catField.appendChild(catHint);
+  catRow.appendChild(catField);
+  body.appendChild(catRow);
+
+  card.appendChild(body);
+  return card;
+}
+
+// ─── API Actions ───────────────────────────────────────────
+
+function addAPI() {
+  state.apis.push({ name: '', key: '', trackers: [...AVAILABLE_TRACKERS] });
+  renderAPIs();
+  const cards = document.querySelectorAll('.api-card');
+  if (cards.length > 0) cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function deleteAPI(idx) {
+  state.apis.splice(idx, 1);
+  renderAPIs();
+}
+
+function generateKey(idx) {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const key = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  state.apis[idx].key = key;
+  const input = document.getElementById(`key-input-${idx}`);
+  if (input) input.value = key;
+}
+
+function copyKey(idx) {
+  const input = document.getElementById(`key-input-${idx}`);
+  if (!input) return;
+  navigator.clipboard.writeText(input.value).then(() => {
+    const btn = document.getElementById(`copy-btn-${idx}`);
+    if (!btn) return;
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+    }, 2000);
+  });
+}
+
+// ─── Save ─────────────────────────────────────────────────
+
+async function saveConfig() {
+  const port = document.getElementById('cfg-port').value.trim() || '9117';
+
+  document.querySelectorAll('.api-card').forEach(card => {
+    const idx = parseInt(card.dataset.idx);
+    if (isNaN(idx)) return;
+    const nameInput = card.querySelector('.field-input');
+    if (nameInput) state.apis[idx].name = nameInput.value.trim();
+    const keyInput = document.getElementById(`key-input-${idx}`);
+    if (keyInput) state.apis[idx].key = keyInput.value.trim();
+  });
+
+  const payload = { port, apis: state.apis, trackers: state.trackers };
+
+  const spinner = document.getElementById('save-spinner');
+  const statusEl = document.getElementById('save-status');
+  const saveBtn = document.getElementById('btn-save');
+
+  spinner.classList.add('active');
+  saveBtn.disabled = true;
+  statusEl.className = 'save-status';
+  statusEl.textContent = '';
+
+  try {
+    const resp = await fetch('/admin/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (resp.ok && data.status === 'ok') {
+      state.port = port;
+      statusEl.textContent = '✓ Настройки сохранены и применены';
+      statusEl.className = 'save-status visible ok';
+    } else {
+      statusEl.textContent = '✗ ' + (data.error || 'Неизвестная ошибка');
+      statusEl.className = 'save-status visible err';
+    }
+  } catch (e) {
+    statusEl.textContent = '✗ Ошибка сети: ' + e.message;
+    statusEl.className = 'save-status visible err';
+  } finally {
+    spinner.classList.remove('active');
+    saveBtn.disabled = false;
+    setTimeout(() => { statusEl.className = 'save-status'; }, 5000);
+  }
+}
+
+// ─── Utils ────────────────────────────────────────────────
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

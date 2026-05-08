@@ -4,423 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TorrentSeek — Поиск торрентов</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap');
-
-  :root {
-    --bg: #0a0a0f;
-    --surface: #111118;
-    --border: #1e1e2e;
-    --accent: #00ff88;
-    --accent2: #ff3366;
-    --text: #e0e0f0;
-    --muted: #555570;
-    --seed: #00cc66;
-    --peer: #ff4466;
-    --row-hover: #16161f;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,255,136,.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,255,136,.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .container {
-    position: relative;
-    z-index: 1;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  header {
-    padding: 48px 0 32px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .logo {
-    font-family: 'Unbounded', sans-serif;
-    font-size: clamp(28px, 5vw, 52px);
-    font-weight: 900;
-    letter-spacing: -2px;
-    background: linear-gradient(135deg, var(--accent) 0%, #00ccff 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1;
-  }
-
-  .logo span {
-    background: linear-gradient(135deg, #ff3366 0%, #ff9900 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .tagline {
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 4px;
-    text-transform: uppercase;
-  }
-
-  .search-wrap {
-    padding: 24px 0 48px;
-  }
-
-  .search-form {
-    display: flex;
-    gap: 0;
-    max-width: 800px;
-    margin: 0 auto;
-    position: relative;
-  }
-
-  .search-input {
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-right: none;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    padding: 14px 20px;
-    outline: none;
-    transition: border-color .2s;
-    border-radius: 4px 0 0 4px;
-  }
-
-  .search-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent) inset, 0 0 20px rgba(0,255,136,.08);
-  }
-
-  .search-input::placeholder { color: var(--muted); }
-
-  .search-btn {
-    background: var(--accent);
-    border: none;
-    color: #000;
-    font-family: 'Unbounded', sans-serif;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    padding: 14px 28px;
-    cursor: pointer;
-    transition: all .2s;
-    border-radius: 0 4px 4px 0;
-    text-transform: uppercase;
-  }
-
-  .search-btn:hover {
-    background: #00ffaa;
-    box-shadow: 0 0 24px rgba(0,255,136,.4);
-  }
-
-  .status {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 12px 0 20px;
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .status .count {
-    color: var(--accent);
-    font-weight: 700;
-  }
-
-  .status .source {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: pulse 2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: .3; }
-  }
-
-  .table-wrap {
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-bottom: 48px;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  thead tr {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
-
-  th {
-    padding: 12px 16px;
-    text-align: left;
-    font-family: 'Unbounded', sans-serif;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  th:first-child { color: var(--accent); }
-
-  th[data-sortable] {
-    cursor: pointer;
-    user-select: none;
-    transition: color .2s;
-    position: relative;
-    padding-right: 24px;
-  }
-
-  th[data-sortable]:hover {
-    color: var(--accent);
-  }
-
-  th[data-sortable]::after {
-    content: '⇅';
-    position: absolute;
-    right: 8px;
-    opacity: 0.4;
-    transition: opacity .2s, transform .2s;
-  }
-
-  th[data-sortable].active::after {
-    opacity: 1;
-    color: var(--accent);
-  }
-
-  th[data-sortable].sort-asc::after {
-    content: '↑';
-    transform: translateY(-2px);
-  }
-
-  th[data-sortable].sort-desc::after {
-    content: '↓';
-    transform: translateY(2px);
-  }
-
-  tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background .15s;
-    animation: fadeIn .3s ease both;
-  }
-
-  tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: var(--row-hover); }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  td {
-    padding: 13px 16px;
-    vertical-align: middle;
-  }
-
-  .td-num {
-    color: var(--muted);
-    font-size: 11px;
-    text-align: center;
-    width: 44px;
-  }
-
-  .td-name {
-    max-width: 520px;
-    line-height: 1.5;
-  }
-
-  .torrent-name {
-    color: var(--text);
-    word-break: break-word;
-  }
-
-  .td-size {
-    white-space: nowrap;
-    color: var(--muted);
-    font-size: 12px;
-  }
-
-  .td-seeds { color: var(--seed); font-weight: 700; }
-  .td-peers { color: var(--peer); }
-
-  .td-date {
-    white-space: nowrap;
-    color: var(--muted);
-    font-size: 11px;
-  }
-
-  .td-magnet { text-align: center; }
-
-  .btn-magnet {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0,255,136,.08);
-    border: 1px solid rgba(0,255,136,.2);
-    color: var(--accent);
-    text-decoration: none;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    padding: 6px 12px;
-    border-radius: 3px;
-    transition: all .2s;
-    white-space: nowrap;
-    text-transform: uppercase;
-  }
-
-  .btn-magnet:hover {
-    background: rgba(0,255,136,.18);
-    border-color: var(--accent);
-    box-shadow: 0 0 12px rgba(0,255,136,.2);
-  }
-
-  .btn-copy {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    padding: 6px 10px;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all .2s;
-    margin-left: 4px;
-  }
-
-  .btn-copy:hover { border-color: var(--muted); color: var(--text); }
-  .btn-copy.copied { border-color: var(--accent); color: var(--accent); }
-
-  .empty-state {
-    text-align: center;
-    padding: 80px 20px;
-    color: var(--muted);
-  }
-
-  .empty-state .icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-    filter: grayscale(1);
-  }
-
-  .empty-state h2 {
-    font-family: 'Unbounded', sans-serif;
-    font-size: 18px;
-    margin-bottom: 8px;
-    color: var(--text);
-  }
-
-  .error-box {
-    background: rgba(255,51,102,.08);
-    border: 1px solid rgba(255,51,102,.25);
-    border-radius: 6px;
-    padding: 16px 20px;
-    color: var(--accent2);
-    margin-bottom: 24px;
-    font-size: 13px;
-  }
-
-  .welcome {
-    text-align: center;
-    padding: 60px 20px;
-  }
-
-  .welcome h2 {
-    font-family: 'Unbounded', sans-serif;
-    font-size: 22px;
-    margin-bottom: 12px;
-    color: var(--text);
-  }
-
-  .welcome p { color: var(--muted); font-size: 13px; line-height: 1.8; }
-
-  .sources {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 32px;
-    flex-wrap: wrap;
-  }
-
-  .source-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .source-tag .active-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-
-  .spinner {
-    display: none;
-    width: 16px; height: 16px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-    margin-left: 8px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .searching .spinner { display: inline-block; }
-</style>
+<script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <div class="container">
-  <header>
+  <header class="index-header">
+    <div class="header-controls">
+      <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему"></button>
+      <a class="admin-link" href="/admin">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.01 7.01 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.37 1.04.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/>
+        </svg>
+        Администрирование
+      </a>
+    </div>
     <div class="logo">Torrent<span>Seek</span></div>
     <div class="tagline">Поиск по торрент-трекерам</div>
   </header>
@@ -514,10 +112,7 @@
         <p>Введите название фильма, сериала, игры или любого контента.<br>
         Программа найдёт раздачи и покажет магнет-ссылки.</p>
         <div class="sources">
-          <div class="source-tag">
-            <span class="active-dot"></span>
-            Готово к поиску
-          </div>
+          <div class="source-tag"><span class="active-dot"></span>Готово к поиску</div>
         </div>
       </div>
     {{end}}
@@ -527,20 +122,44 @@
       <p>Введите название фильма, сериала, игры или любого контента.<br>
       Программа найдёт раздачи и покажет магнет-ссылки.</p>
       <div class="sources">
-        <div class="source-tag">
-          <span class="active-dot"></span>
-          Готово к поиску
-        </div>
+        <div class="source-tag"><span class="active-dot"></span>Готово к поиску</div>
       </div>
     </div>
   {{end}}
 </div>
 
 <script>
+// ─── Theme toggle ──────────────────────────────────────────
+(function() {
+  var SUN = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>';
+  var MOON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>';
+
+  function applyTheme(theme) {
+    var btn = document.getElementById('themeToggle');
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      btn.innerHTML = MOON + ' Тёмная';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      btn.innerHTML = SUN + ' Светлая';
+    }
+    try { localStorage.setItem('theme', theme); } catch(e) {}
+  }
+
+  var current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current);
+
+  document.getElementById('themeToggle').addEventListener('click', function() {
+    applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+  });
+})();
+
+// ─── Search form ───────────────────────────────────────────
 document.getElementById('searchForm').addEventListener('submit', function() {
   document.getElementById('searchBtn').classList.add('searching');
 });
 
+// ─── Copy magnet ───────────────────────────────────────────
 function copyMagnet(btn, magnet) {
   navigator.clipboard.writeText(magnet).then(() => {
     btn.classList.add('copied');
@@ -552,32 +171,20 @@ function copyMagnet(btn, magnet) {
   });
 }
 
-// Инициализация сортировки таблиц
+// ─── Table sorting ─────────────────────────────────────────
 function initTableSorting() {
   document.querySelectorAll('table').forEach(table => {
     const headers = table.querySelectorAll('th[data-sortable]');
-    
     headers.forEach(header => {
       header.addEventListener('click', function() {
         const sortBy = this.dataset.sortable;
         const tbody = table.querySelector('tbody');
         const rows = Array.from(tbody.querySelectorAll('tr'));
-        
-        // Определяем направление сортировки
-        let isAsc = !this.classList.contains('sort-asc');
-        
-        // Очищаем все активные сортировки
-        headers.forEach(h => {
-          h.classList.remove('active', 'sort-asc', 'sort-desc');
-        });
-        
-        // Устанавливаем активную сортировку
+        const isAsc = !this.classList.contains('sort-asc');
+        headers.forEach(h => h.classList.remove('active', 'sort-asc', 'sort-desc'));
         this.classList.add('active', isAsc ? 'sort-asc' : 'sort-desc');
-        
-        // Сортируем строки
         rows.sort((a, b) => {
           let aVal, bVal;
-          
           switch(sortBy) {
             case 'name':
               aVal = a.querySelector('.torrent-name')?.textContent?.toLowerCase() || '';
@@ -588,62 +195,41 @@ function initTableSorting() {
               bVal = parseSize(b.querySelector('.td-size')?.textContent || '0');
               break;
             case 'seeds':
-              aVal = parseNumber(a.querySelector('.td-seeds')?.textContent || '0');
-              bVal = parseNumber(b.querySelector('.td-seeds')?.textContent || '0');
+              aVal = parseNum(a.querySelector('.td-seeds')?.textContent || '0');
+              bVal = parseNum(b.querySelector('.td-seeds')?.textContent || '0');
               break;
             case 'peers':
-              aVal = parseNumber(a.querySelector('.td-peers')?.textContent || '0');
-              bVal = parseNumber(b.querySelector('.td-peers')?.textContent || '0');
+              aVal = parseNum(a.querySelector('.td-peers')?.textContent || '0');
+              bVal = parseNum(b.querySelector('.td-peers')?.textContent || '0');
               break;
-            default:
-              return 0;
+            default: return 0;
           }
-          
-          // Сравниваем значения
           if (aVal < bVal) return isAsc ? -1 : 1;
           if (aVal > bVal) return isAsc ? 1 : -1;
           return 0;
         });
-        
-        // Переставляем строки в таблице
-        rows.forEach((row, index) => {
-          row.style.animationDelay = (index * 20) + 'ms';
-          tbody.appendChild(row);
-        });
+        rows.forEach((row, i) => { row.style.animationDelay = (i * 20) + 'ms'; tbody.appendChild(row); });
       });
     });
   });
 }
 
-// Парсинг числовых значений (обработка форматов типа "100", "1,234", "—")
-function parseNumber(str) {
+function parseNum(str) {
   if (!str || str === '—') return 0;
-  return parseInt(str.toString().replace(/[^0-9]/g, ''), 10) || 0;
+  return parseInt(str.replace(/[^0-9]/g, ''), 10) || 0;
 }
 
-// Парсинг размера файла (обработка форматов типа "1 GB", "512 MB", "1.5 GB")
 function parseSize(str) {
   if (!str || str === '—') return 0;
-  
-  const units = { 'B': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3, 'TB': 1024**4 };
-  const match = str.match(/([0-9.,]+)\s*([A-Z]+)/i);
-  
-  if (!match) return 0;
-  
-  const value = parseFloat(match[1].replace(',', '.'));
-  const unit = match[2].toUpperCase();
-  
-  return value * (units[unit] || 1);
+  const units = { B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776 };
+  const m = str.match(/([0-9.,]+)\s*([A-Z]+)/i);
+  if (!m) return 0;
+  return parseFloat(m[1].replace(',', '.')) * (units[m[2].toUpperCase()] || 1);
 }
 
-// Инициализируем сортировку при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
   initTableSorting();
-  
-  // Анимация появления строк таблицы
-  document.querySelectorAll('tbody tr').forEach((tr, i) => {
-    tr.style.animationDelay = (i * 30) + 'ms';
-  });
+  document.querySelectorAll('tbody tr').forEach((tr, i) => { tr.style.animationDelay = (i * 30) + 'ms'; });
 });
 </script>
 </body>
