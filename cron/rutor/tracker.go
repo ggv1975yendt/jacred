@@ -53,7 +53,7 @@ func (t *Tracker) Search(query string) *tracker.SearchResult {
 		go func(cat string) {
 			defer wg.Done()
 
-			encoded := url.PathEscape(query)
+			encoded := strings.ReplaceAll(url.PathEscape(query), "%20", "+")
 			searchURL := fmt.Sprintf("https://%s/search/%s/0/000/0/%s", t.cfg.Domain, cat, encoded)
 
 			client := &http.Client{Timeout: 15 * time.Second}

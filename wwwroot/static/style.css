@@ -305,6 +305,76 @@ header.index-header .logo {
 
 .searching .spinner { display: inline-block; }
 
+/* Tracker bar */
+.trackers-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 32px;
+  justify-content: center;
+}
+
+.tracker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color .2s, color .2s, background .2s;
+  user-select: none;
+}
+
+.tracker-btn:hover {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.tracker-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-chip-bg);
+}
+
+.tracker-btn.active:hover {
+  border-color: var(--accent);
+}
+
+.tracker-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tracker-indicator.online  { background: var(--seed); animation: pulse 2s infinite; }
+.tracker-indicator.offline { background: var(--accent2); animation: blink .9s infinite; }
+.tracker-indicator.unknown { background: var(--muted); }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .15; }
+}
+
+/* Shake when submitting with no trackers selected */
+.trackers-bar.bar-error .tracker-btn {
+  border-color: var(--accent2);
+  animation: shake .4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-5px); }
+  40%       { transform: translateX(5px); }
+  60%       { transform: translateX(-3px); }
+  80%       { transform: translateX(3px); }
+}
+
 /* Status bar */
 .status {
   display: flex;

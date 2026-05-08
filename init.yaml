@@ -1,9 +1,9 @@
 port: "9117"
+ping_interval: 10
 apis:
     - name: Test API
       key: mykey123
-      trackers:
-        - rutor.info
+      trackers: []
     - name: Test API 2
       key: "1"
       trackers:

@@ -40,6 +40,13 @@
           </div>
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-label">Опрос</div>
+        <div class="form-field">
+          <input class="input" id="cfg-ping" type="number" min="1" max="1440" placeholder="10" style="max-width:120px">
+          <div class="input-hint">Интервал проверки доступности трекеров, в минутах (мин. 1)</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -76,7 +83,8 @@ const CONFIG = {{.ConfigJSON}};
 const AVAILABLE_TRACKERS = {{.TrackersJSON}};
 
 let state = {
-  port: CONFIG.port || '9117',
+  port:         CONFIG.port || '9117',
+  pingInterval: CONFIG.ping_interval || 10,
   apis: (CONFIG.apis || []).map(a => ({
     name: a.name || '',
     key: a.key || '',
@@ -92,6 +100,7 @@ document.getElementById('cfg-port').value = state.port;
 document.getElementById('cfg-port').addEventListener('input', function() {
   document.getElementById('port-warning').classList.toggle('visible', this.value.trim() !== initialPort);
 });
+document.getElementById('cfg-ping').value = state.pingInterval;
 
 renderAPIs();
 renderTrackers();
@@ -352,7 +361,8 @@ function copyKey(idx) {
 // ─── Save ─────────────────────────────────────────────────
 
 async function saveConfig() {
-  const port = document.getElementById('cfg-port').value.trim() || '9117';
+  const port         = document.getElementById('cfg-port').value.trim() || '9117';
+  const pingInterval = Math.max(1, parseInt(document.getElementById('cfg-ping').value) || 10);
 
   document.querySelectorAll('.api-card').forEach(card => {
     const idx = parseInt(card.dataset.idx);
@@ -363,7 +373,7 @@ async function saveConfig() {
     if (keyInput) state.apis[idx].key = keyInput.value.trim();
   });
 
-  const payload = { port, apis: state.apis, trackers: state.trackers };
+  const payload = { port, ping_interval: pingInterval, apis: state.apis, trackers: state.trackers };
 
   const spinner = document.getElementById('save-spinner');
   const statusEl = document.getElementById('save-status');

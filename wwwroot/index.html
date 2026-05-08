@@ -41,94 +41,14 @@
     </form>
   </div>
 
-  {{if .Results}}
-    {{if gt (len .Results) 0}}
-      {{range $resultIdx, $result := .Results}}
-        {{if $result.Error}}
-          <div class="error-box">⚠ {{$result.Source}}: {{$result.Error}}</div>
-        {{else if $result.Results}}
-          <div class="status">
-            <span>Запрос: <strong>{{$result.Query}}</strong></span>
-            <span class="count">{{$result.Count}} результатов</span>
-            <span class="source">
-              <span class="dot"></span>
-              {{$result.Source}}
-            </span>
-          </div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th data-sortable="name">Название</th>
-                  <th data-sortable="size">Размер</th>
-                  <th data-sortable="seeds">↑ Сиды</th>
-                  <th data-sortable="peers">↓ Пиры</th>
-                  <th>Дата</th>
-                  <th>Магнет</th>
-                </tr>
-              </thead>
-              <tbody>
-                {{range $i, $t := $result.Results}}
-                <tr>
-                  <td class="td-num">{{add $i 1}}</td>
-                  <td class="td-name">
-                    <div class="torrent-name">{{$t.Name}}</div>
-                  </td>
-                  <td class="td-size">{{if $t.Size}}{{$t.Size}}{{else}}—{{end}}</td>
-                  <td class="td-seeds">{{if $t.Seeds}}{{$t.Seeds}}{{else}}—{{end}}</td>
-                  <td class="td-peers">{{if $t.Peers}}{{$t.Peers}}{{else}}—{{end}}</td>
-                  <td class="td-date">{{if $t.Date}}{{$t.Date}}{{else}}—{{end}}</td>
-                  <td class="td-magnet">
-                    <a class="btn-magnet" href="{{$t.Magnet}}" title="Открыть магнет-ссылку">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C8.13 2 5 5.13 5 9v4h2V9c0-2.76 2.24-5 5-5s5 2.24 5 5v4h2V9c0-3.87-3.13-7-7-7zm-1 10v8h2v-8h-2z"/>
-                      </svg>
-                      MAGNET
-                    </a>
-                    <button class="btn-copy" onclick="copyMagnet(this, '{{$t.Magnet}}')" title="Скопировать">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-                {{end}}
-              </tbody>
-            </table>
-          </div>
-        {{else}}
-          <div class="empty-state">
-            <div class="icon">🔍</div>
-            <h2>{{$result.Source}}: Ничего не найдено</h2>
-            <p>По запросу «{{$result.Query}}» результатов не найдено.</p>
-          </div>
-        {{end}}
-      {{end}}
-    {{else}}
-      <div class="welcome">
-        <h2>Поиск по торрент-трекерам</h2>
-        <p>Введите название фильма, сериала, игры или любого контента.<br>
-        Программа найдёт раздачи и покажет магнет-ссылки.</p>
-        <div class="sources">
-          <div class="source-tag"><span class="active-dot"></span>Готово к поиску</div>
-        </div>
-      </div>
-    {{end}}
-  {{else}}
-    <div class="welcome">
-      <h2>Поиск по торрент-трекерам</h2>
-      <p>Введите название фильма, сериала, игры или любого контента.<br>
-      Программа найдёт раздачи и покажет магнет-ссылки.</p>
-      <div class="sources">
-        <div class="source-tag"><span class="active-dot"></span>Готово к поиску</div>
-      </div>
-    </div>
-  {{end}}
+  <div class="trackers-bar" id="trackers-bar"></div>
+  <div id="results-area"></div>
 </div>
 
 <script>
+const TRACKERS = {{.TrackersJSON}};
+const SELECTED = {{.SelectedJSON}};
+
 // ─── Theme toggle ──────────────────────────────────────────
 (function() {
   var SUN = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>';
@@ -154,83 +74,343 @@
   });
 })();
 
-// ─── Search form ───────────────────────────────────────────
-document.getElementById('searchForm').addEventListener('submit', function() {
-  document.getElementById('searchBtn').classList.add('searching');
-});
+// ─── Tracker bar ───────────────────────────────────────────
+let enabledTrackers = new Set(SELECTED.length > 0 ? SELECTED : TRACKERS);
+let trackerStatus   = {};
 
-// ─── Copy magnet ───────────────────────────────────────────
-function copyMagnet(btn, magnet) {
-  navigator.clipboard.writeText(magnet).then(() => {
-    btn.classList.add('copied');
-    btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-    setTimeout(() => {
-      btn.classList.remove('copied');
-      btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
-    }, 2000);
-  });
+function fmtTime(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleTimeString(); } catch(e) { return ''; }
 }
 
-// ─── Table sorting ─────────────────────────────────────────
-function initTableSorting() {
-  document.querySelectorAll('table').forEach(table => {
-    const headers = table.querySelectorAll('th[data-sortable]');
-    headers.forEach(header => {
-      header.addEventListener('click', function() {
-        const sortBy = this.dataset.sortable;
-        const tbody = table.querySelector('tbody');
-        const rows = Array.from(tbody.querySelectorAll('tr'));
-        const isAsc = !this.classList.contains('sort-asc');
-        headers.forEach(h => h.classList.remove('active', 'sort-asc', 'sort-desc'));
-        this.classList.add('active', isAsc ? 'sort-asc' : 'sort-desc');
-        rows.sort((a, b) => {
-          let aVal, bVal;
-          switch(sortBy) {
-            case 'name':
-              aVal = a.querySelector('.torrent-name')?.textContent?.toLowerCase() || '';
-              bVal = b.querySelector('.torrent-name')?.textContent?.toLowerCase() || '';
-              break;
-            case 'size':
-              aVal = parseSize(a.querySelector('.td-size')?.textContent || '0');
-              bVal = parseSize(b.querySelector('.td-size')?.textContent || '0');
-              break;
-            case 'seeds':
-              aVal = parseNum(a.querySelector('.td-seeds')?.textContent || '0');
-              bVal = parseNum(b.querySelector('.td-seeds')?.textContent || '0');
-              break;
-            case 'peers':
-              aVal = parseNum(a.querySelector('.td-peers')?.textContent || '0');
-              bVal = parseNum(b.querySelector('.td-peers')?.textContent || '0');
-              break;
-            default: return 0;
-          }
-          if (aVal < bVal) return isAsc ? -1 : 1;
-          if (aVal > bVal) return isAsc ? 1 : -1;
-          return 0;
-        });
-        rows.forEach((row, i) => { row.style.animationDelay = (i * 20) + 'ms'; tbody.appendChild(row); });
-      });
+function renderTrackerBar() {
+  const bar = document.getElementById('trackers-bar');
+  if (!bar || TRACKERS.length === 0) return;
+  bar.innerHTML = '';
+
+  TRACKERS.forEach(name => {
+    const st = trackerStatus[name];
+    const on = enabledTrackers.has(name);
+
+    let dotCls = 'tracker-indicator ';
+    let tip    = name;
+    if (!st) {
+      dotCls += 'unknown';
+      tip += ' · статус неизвестен';
+    } else if (st.available) {
+      dotCls += 'online';
+      tip += ' · доступен · ' + fmtTime(st.checked_at);
+    } else {
+      dotCls += 'offline';
+      tip += ' · недоступен · ' + fmtTime(st.checked_at);
+    }
+
+    const btn = document.createElement('button');
+    btn.type      = 'button';
+    btn.className = 'tracker-btn' + (on ? ' active' : '');
+    btn.title     = tip;
+
+    const dot = document.createElement('span');
+    dot.className = dotCls;
+    btn.appendChild(dot);
+    btn.appendChild(document.createTextNode(name));
+
+    btn.addEventListener('click', () => {
+      if (enabledTrackers.has(name)) {
+        enabledTrackers.delete(name);
+        btn.classList.remove('active');
+      } else {
+        enabledTrackers.add(name);
+        btn.classList.add('active');
+      }
     });
+
+    bar.appendChild(btn);
   });
 }
 
-function parseNum(str) {
-  if (!str || str === '—') return 0;
-  return parseInt(str.replace(/[^0-9]/g, ''), 10) || 0;
+async function fetchTrackerStatus() {
+  try {
+    const resp = await fetch('/api/trackers/status');
+    if (resp.ok) {
+      trackerStatus = await resp.json();
+      renderTrackerBar();
+    }
+  } catch(e) {}
+}
+
+// ─── Utilities ─────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function parseSize(str) {
-  if (!str || str === '—') return 0;
+  const s = (str || '').trim();
+  if (!s || s === '—') return 0;
   const units = { B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776 };
-  const m = str.match(/([0-9.,]+)\s*([A-Z]+)/i);
+  const m = s.match(/([0-9.,]+)\s*([A-Za-z]+)/);
   if (!m) return 0;
   return parseFloat(m[1].replace(',', '.')) * (units[m[2].toUpperCase()] || 1);
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  initTableSorting();
-  document.querySelectorAll('tbody tr').forEach((tr, i) => { tr.style.animationDelay = (i * 30) + 'ms'; });
+function parseNum(str) {
+  const n = parseInt((str || '').replace(/[^0-9]/g, ''), 10);
+  return isNaN(n) ? 0 : n;
+}
+
+// ─── SVG icons ─────────────────────────────────────────────
+const SVG_MAGNET = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9v4h2V9c0-2.76 2.24-5 5-5s5 2.24 5 5v4h2V9c0-3.87-3.13-7-7-7zm-1 10v8h2v-8h-2z"/></svg>';
+const SVG_COPY   = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+const SVG_CHECK  = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+
+// ─── Copy magnet ───────────────────────────────────────────
+function copyMagnet(btn, magnet) {
+  navigator.clipboard.writeText(magnet || '').then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = SVG_CHECK;
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = SVG_COPY; }, 2000);
+  });
+}
+
+// ─── Table sorting ─────────────────────────────────────────
+// Sort values are stored as data-sort-* attributes on each <tr>,
+// set at render time — no DOM text parsing needed during sort.
+function initTableSorting(table) {
+  const headers = table.querySelectorAll('th[data-sortable]');
+  const tbody   = table.querySelector('tbody');
+  if (!tbody) return;
+
+  headers.forEach(header => {
+    header.addEventListener('click', function() {
+      const key = this.dataset.sortable;
+      const asc = !this.classList.contains('sort-asc');
+
+      headers.forEach(h => h.classList.remove('active', 'sort-asc', 'sort-desc'));
+      this.classList.add('active', asc ? 'sort-asc' : 'sort-desc');
+
+      // dataset key: sortName, sortSize, sortSeeds, sortPeers
+      const dkey = 'sort' + key[0].toUpperCase() + key.slice(1);
+      const rows = [...tbody.querySelectorAll('tr')];
+
+      rows.sort((a, b) => {
+        let av = a.dataset[dkey], bv = b.dataset[dkey];
+        if (key === 'name') {
+          av = av || ''; bv = bv || '';
+          return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+        }
+        av = +(av || 0); bv = +(bv || 0);
+        return asc ? av - bv : bv - av;
+      });
+
+      rows.forEach((row, i) => {
+        row.style.animation = 'none'; // prevent fadeIn restart
+        const nc = row.querySelector('.td-num');
+        if (nc) nc.textContent = i + 1;
+      });
+      rows.forEach(row => tbody.appendChild(row));
+    });
+  });
+}
+
+// ─── Render results ────────────────────────────────────────
+function renderResults(results, query) {
+  const area = document.getElementById('results-area');
+  area.innerHTML = '';
+
+  if (!results || results.length === 0) {
+    area.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><h2>Ничего не найдено</h2><p>По запросу «${esc(query)}» результатов не найдено.</p></div>`;
+    return;
+  }
+
+  for (const result of results) {
+    if (result.error) {
+      const d = document.createElement('div');
+      d.className = 'error-box';
+      d.textContent = `⚠ ${result.source}: ${result.error}`;
+      area.appendChild(d);
+      continue;
+    }
+
+    if (!result.results || result.results.length === 0) {
+      const d = document.createElement('div');
+      d.className = 'empty-state';
+      d.innerHTML = `<div class="icon">🔍</div><h2>${esc(result.source)}: Ничего не найдено</h2><p>По запросу «${esc(query)}» результатов не найдено.</p>`;
+      area.appendChild(d);
+      continue;
+    }
+
+    // Status bar
+    const status = document.createElement('div');
+    status.className = 'status';
+    status.innerHTML = `<span>Запрос: <strong>${esc(result.query || query)}</strong></span>
+      <span class="count">${result.count} результатов</span>
+      <span class="source"><span class="dot"></span>${esc(result.source)}</span>`;
+    area.appendChild(status);
+
+    // Table
+    const wrap  = document.createElement('div');
+    wrap.className = 'table-wrap';
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    thead.innerHTML = `<tr>
+      <th>#</th>
+      <th data-sortable="name">Название</th>
+      <th data-sortable="size">Размер</th>
+      <th data-sortable="seeds">↑ Сиды</th>
+      <th data-sortable="peers">↓ Пиры</th>
+      <th>Дата</th>
+      <th>Магнет</th>
+    </tr>`;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    result.results.forEach((t, i) => {
+      const tr = document.createElement('tr');
+      tr.style.animationDelay = (i * 30) + 'ms';
+      // Store sort values as data attributes — avoids DOM text parsing on each click
+      tr.dataset.sortName  = (t.name  || '').toLowerCase();
+      tr.dataset.sortSize  = parseSize(t.size);
+      tr.dataset.sortSeeds = parseNum(t.seeds);
+      tr.dataset.sortPeers = parseNum(t.peers);
+
+      tr.innerHTML = `
+        <td class="td-num">${i + 1}</td>
+        <td class="td-name"><div class="torrent-name">${esc(t.name)}</div></td>
+        <td class="td-size">${esc(t.size  || '—')}</td>
+        <td class="td-seeds">${esc(t.seeds || '—')}</td>
+        <td class="td-peers">${esc(t.peers || '—')}</td>
+        <td class="td-date">${esc(t.date  || '—')}</td>
+        <td class="td-magnet"></td>
+      `;
+
+      // Build magnet cell via DOM (keeps href safe from innerHTML XSS)
+      const cell   = tr.querySelector('.td-magnet');
+      const link   = document.createElement('a');
+      link.className = 'btn-magnet';
+      link.href      = t.magnet || '#';
+      link.title     = 'Открыть магнет-ссылку';
+      link.innerHTML = SVG_MAGNET + ' MAGNET';
+      cell.appendChild(link);
+
+      const cpBtn = document.createElement('button');
+      cpBtn.className = 'btn-copy';
+      cpBtn.title     = 'Скопировать';
+      cpBtn.innerHTML = SVG_COPY;
+      cpBtn.addEventListener('click', () => copyMagnet(cpBtn, t.magnet));
+      cell.appendChild(cpBtn);
+
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    area.appendChild(wrap);
+
+    initTableSorting(table);
+  }
+}
+
+// ─── AJAX search ───────────────────────────────────────────
+async function doSearch(query, trackerList) {
+  document.getElementById('searchBtn').classList.add('searching');
+
+  let url = '/api/ui/search?q=' + encodeURIComponent(query);
+  if (trackerList && trackerList.length > 0) {
+    trackerList.forEach(n => { url += '&trackers=' + encodeURIComponent(n); });
+  }
+
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (!resp.ok) {
+      showError(data.error || 'Ошибка запроса');
+    } else {
+      renderResults(data, query);
+    }
+  } catch(e) {
+    showError('Ошибка соединения');
+  } finally {
+    document.getElementById('searchBtn').classList.remove('searching');
+  }
+}
+
+function showError(msg) {
+  const area = document.getElementById('results-area');
+  area.innerHTML = '';
+  const d = document.createElement('div');
+  d.className = 'error-box';
+  d.textContent = '⚠ ' + msg;
+  area.appendChild(d);
+}
+
+function showWelcome() {
+  document.getElementById('results-area').innerHTML = `
+    <div class="welcome">
+      <h2>Поиск по торрент-трекерам</h2>
+      <p>Введите название фильма, сериала, игры или любого контента.<br>
+      Программа найдёт раздачи и покажет магнет-ссылки.</p>
+      <div class="sources">
+        <div class="source-tag"><span class="active-dot"></span>Готово к поиску</div>
+      </div>
+    </div>`;
+}
+
+// ─── Form submit ───────────────────────────────────────────
+document.getElementById('searchForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  if (TRACKERS.length > 0 && enabledTrackers.size === 0) {
+    const bar = document.getElementById('trackers-bar');
+    bar.classList.remove('bar-error');
+    void bar.offsetWidth;
+    bar.classList.add('bar-error');
+    setTimeout(() => bar.classList.remove('bar-error'), 500);
+    return;
+  }
+
+  const query = document.querySelector('.search-input').value.trim();
+  if (!query) return;
+
+  const selected = [...enabledTrackers];
+  const params = new URLSearchParams();
+  params.set('q', query);
+  if (selected.length < TRACKERS.length) {
+    selected.forEach(n => params.append('trackers', n));
+  }
+  history.pushState({ query, trackers: selected }, '', '/search?' + params.toString());
+
+  doSearch(query, selected.length < TRACKERS.length ? selected : []);
 });
+
+// Browser back/forward support
+window.addEventListener('popstate', function(e) {
+  const s = e.state;
+  if (s && s.query) {
+    document.querySelector('.search-input').value = s.query;
+    enabledTrackers = new Set(s.trackers && s.trackers.length > 0 ? s.trackers : TRACKERS);
+    renderTrackerBar();
+    doSearch(s.query, s.trackers && s.trackers.length < TRACKERS.length ? s.trackers : []);
+  } else {
+    document.querySelector('.search-input').value = '';
+    enabledTrackers = new Set(TRACKERS);
+    renderTrackerBar();
+    showWelcome();
+  }
+});
+
+// ─── Init ──────────────────────────────────────────────────
+renderTrackerBar();
+fetchTrackerStatus();
+setInterval(fetchTrackerStatus, 60_000);
+
+const _initQuery = document.querySelector('.search-input').value.trim();
+if (_initQuery) {
+  const _initTrackers = SELECTED.length > 0 && SELECTED.length < TRACKERS.length ? [...SELECTED] : [];
+  doSearch(_initQuery, _initTrackers);
+} else {
+  showWelcome();
+}
 </script>
 </body>
 </html>

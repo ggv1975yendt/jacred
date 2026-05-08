@@ -20,9 +20,10 @@ type TrackerConfig struct {
 }
 
 type Config struct {
-	Port     string                   `yaml:"port" json:"port"`
-	APIs     []APIConfig              `yaml:"apis" json:"apis"`
-	Trackers map[string]TrackerConfig `yaml:"trackers" json:"trackers"`
+	Port         string                   `yaml:"port" json:"port"`
+	PingInterval int                      `yaml:"ping_interval" json:"ping_interval"`
+	APIs         []APIConfig              `yaml:"apis" json:"apis"`
+	Trackers     map[string]TrackerConfig `yaml:"trackers" json:"trackers"`
 }
 
 func Load(path string) (*Config, error) {
@@ -38,6 +39,9 @@ func Load(path string) (*Config, error) {
 
 	if cfg.Port == "" {
 		cfg.Port = "9117"
+	}
+	if cfg.PingInterval < 1 {
+		cfg.PingInterval = 10
 	}
 	if cfg.APIs == nil {
 		cfg.APIs = []APIConfig{}

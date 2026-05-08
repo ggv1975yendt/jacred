@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -11,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"jacred/config"
 	"jacred/tracker"
@@ -18,6 +20,12 @@ import (
 
 // TrackerFactory creates a tracker instance from its config.
 type TrackerFactory func(cfg config.TrackerConfig) tracker.Tracker
+
+// TrackerHealth holds the last known availability of a tracker.
+type TrackerHealth struct {
+	Available bool      `json:"available"`
+	CheckedAt time.Time `json:"checked_at"`
+}
 
 type Router struct {
 	mu            sync.RWMutex
@@ -28,11 +36,17 @@ type Router struct {
 	indexTemplate *template.Template
 	adminTemplate *template.Template
 	Mux           *http.ServeMux
+
+	healthMu   sync.RWMutex
+	health     map[string]TrackerHealth
+	healthPing chan struct{} // send to trigger an immediate health check
 }
 
 type PageData struct {
-	Query   string
-	Results []*tracker.SearchResult
+	Query        string
+	Results      []*tracker.SearchResult
+	TrackersJSON template.JS // JSON array of tracker names
+	SelectedJSON template.JS // JSON array of selected tracker names (empty = all)
 }
 
 type AdminPageData struct {
@@ -63,6 +77,11 @@ func New(factories map[string]TrackerFactory, templateDir, cfgPath string, cfg *
 		return nil, fmt.Errorf("admin template: %w", err)
 	}
 
+	absStatic, err := filepath.Abs(filepath.Join(templateDir, "static"))
+	if err != nil {
+		return nil, fmt.Errorf("static dir: %w", err)
+	}
+
 	r := &Router{
 		cfg:           cfg,
 		cfgPath:       cfgPath,
@@ -71,22 +90,89 @@ func New(factories map[string]TrackerFactory, templateDir, cfgPath string, cfg *
 		indexTemplate: indexTmpl,
 		adminTemplate: adminTmpl,
 		Mux:           http.NewServeMux(),
+		health:        make(map[string]TrackerHealth),
+		healthPing:    make(chan struct{}, 1),
 	}
 
-	absStatic, err := filepath.Abs(filepath.Join(templateDir, "static"))
-	if err != nil {
-		return nil, fmt.Errorf("static dir: %w", err)
-	}
 	r.Mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(absStatic))))
-
 	r.Mux.HandleFunc("/", r.handleIndex)
 	r.Mux.HandleFunc("/search", r.handleSearch)
 	r.Mux.HandleFunc("/api/search", r.handleAPISearch)
+	r.Mux.HandleFunc("/api/ui/search", r.handleUISearch)
+	r.Mux.HandleFunc("/api/trackers/status", r.handleTrackersStatus)
 	r.Mux.HandleFunc("/admin", r.handleAdmin)
 	r.Mux.HandleFunc("/admin/save", r.handleAdminSave)
 
+	r.startHealthChecker(context.Background())
+
 	return r, nil
 }
+
+// ─── Health checker ────────────────────────────────────────
+
+func (r *Router) startHealthChecker(ctx context.Context) {
+	go func() {
+		r.checkAllTrackers() // immediate first check
+		for {
+			r.mu.RLock()
+			interval := time.Duration(r.cfg.PingInterval) * time.Minute
+			r.mu.RUnlock()
+			if interval < time.Minute {
+				interval = 10 * time.Minute
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(interval):
+				r.checkAllTrackers()
+			case <-r.healthPing:
+				r.checkAllTrackers()
+			}
+		}
+	}()
+}
+
+func (r *Router) checkAllTrackers() {
+	r.mu.RLock()
+	cfg := r.cfg
+	names := make([]string, 0, len(r.allTrackers))
+	for name := range r.allTrackers {
+		names = append(names, name)
+	}
+	r.mu.RUnlock()
+
+	var wg sync.WaitGroup
+	for _, name := range names {
+		wg.Add(1)
+		go func(tname string) {
+			defer wg.Done()
+			tcfg := cfg.Trackers[tname]
+			available := pingHost(tcfg.Domain)
+			if !available && tcfg.AltDomain != "" {
+				available = pingHost(tcfg.AltDomain)
+			}
+			r.healthMu.Lock()
+			r.health[tname] = TrackerHealth{Available: available, CheckedAt: time.Now()}
+			r.healthMu.Unlock()
+		}(name)
+	}
+	wg.Wait()
+}
+
+func pingHost(domain string) bool {
+	if domain == "" {
+		return false
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get("https://" + domain + "/")
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return true
+}
+
+// ─── Helpers ───────────────────────────────────────────────
 
 func buildTrackers(factories map[string]TrackerFactory, cfg *config.Config) map[string]tracker.Tracker {
 	result := make(map[string]tracker.Tracker, len(factories))
@@ -113,14 +199,24 @@ func loadTemplate(path string, funcs template.FuncMap) (*template.Template, erro
 	return tmpl.Parse(string(content))
 }
 
-// --- Web UI handlers ---
+func (r *Router) trackerNamesJSON() template.JS {
+	names := r.trackerNames()
+	b, _ := json.Marshal(names)
+	return template.JS(b)
+}
+
+// ─── Web UI handlers ───────────────────────────────────────
 
 func (r *Router) handleIndex(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		http.NotFound(w, req)
 		return
 	}
-	r.renderPage(w, PageData{Results: make([]*tracker.SearchResult, 0)})
+	r.renderPage(w, PageData{
+		Results:      make([]*tracker.SearchResult, 0),
+		TrackersJSON: r.trackerNamesJSON(),
+		SelectedJSON: template.JS("[]"),
+	})
 }
 
 func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
@@ -129,8 +225,37 @@ func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 		http.Redirect(w, req, "/", http.StatusSeeOther)
 		return
 	}
-	results := r.searchTrackers(r.allTrackersList(), query)
-	r.renderPage(w, PageData{Query: query, Results: results})
+
+	selectedNames := req.URL.Query()["trackers"]
+	selectedJSON, _ := json.Marshal(selectedNames)
+
+	r.renderPage(w, PageData{
+		Query:        query,
+		TrackersJSON: r.trackerNamesJSON(),
+		SelectedJSON: template.JS(selectedJSON),
+	})
+}
+
+func (r *Router) handleUISearch(w http.ResponseWriter, req *http.Request) {
+	query := strings.TrimSpace(req.URL.Query().Get("q"))
+	w.Header().Set("Content-Type", "application/json")
+
+	if query == "" {
+		json.NewEncoder(w).Encode(map[string]string{"error": "empty query"})
+		return
+	}
+
+	selectedNames := req.URL.Query()["trackers"]
+	var searchTrackers []tracker.Tracker
+	if len(selectedNames) > 0 {
+		searchTrackers = r.trackersForNames(selectedNames)
+	}
+	if len(searchTrackers) == 0 {
+		searchTrackers = r.allTrackersList()
+	}
+
+	results := r.searchTrackers(searchTrackers, query)
+	json.NewEncoder(w).Encode(results)
 }
 
 func (r *Router) renderPage(w http.ResponseWriter, data PageData) {
@@ -142,7 +267,7 @@ func (r *Router) renderPage(w http.ResponseWriter, data PageData) {
 	}
 }
 
-// --- API handler ---
+// ─── API handlers ──────────────────────────────────────────
 
 func (r *Router) handleAPISearch(w http.ResponseWriter, req *http.Request) {
 	query := strings.TrimSpace(req.URL.Query().Get("q"))
@@ -173,7 +298,19 @@ func (r *Router) handleAPISearch(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(results)
 }
 
-// --- Admin handlers ---
+func (r *Router) handleTrackersStatus(w http.ResponseWriter, req *http.Request) {
+	r.healthMu.RLock()
+	status := make(map[string]TrackerHealth, len(r.health))
+	for k, v := range r.health {
+		status[k] = v
+	}
+	r.healthMu.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+// ─── Admin handlers ────────────────────────────────────────
 
 func (r *Router) handleAdmin(w http.ResponseWriter, req *http.Request) {
 	r.mu.RLock()
@@ -224,6 +361,9 @@ func (r *Router) handleAdminSave(w http.ResponseWriter, req *http.Request) {
 	if strings.TrimSpace(newCfg.Port) == "" {
 		newCfg.Port = "9117"
 	}
+	if newCfg.PingInterval < 1 {
+		newCfg.PingInterval = 10
+	}
 	if newCfg.APIs == nil {
 		newCfg.APIs = []config.APIConfig{}
 	}
@@ -262,10 +402,16 @@ func (r *Router) handleAdminSave(w http.ResponseWriter, req *http.Request) {
 	r.allTrackers = newTrackers
 	r.mu.Unlock()
 
+	// Trigger immediate health re-check with new settings
+	select {
+	case r.healthPing <- struct{}{}:
+	default:
+	}
+
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-// --- Helpers ---
+// ─── Shared helpers ────────────────────────────────────────
 
 func (r *Router) findAPI(key string) *config.APIConfig {
 	if key == "" {
