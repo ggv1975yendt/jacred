@@ -205,10 +205,7 @@ func extractTorrentFromRow(tr *html.Node, baseURL string) *tracker.Torrent {
 	}
 
 	if len(cells) > 0 {
-		dateText := cleanText(extractText(cells[0]))
-		if isDate(dateText) {
-			torrent.Date = dateutil.Normalize(dateText)
-		}
+		torrent.Date = dateutil.Normalize(cleanText(extractText(cells[0])))
 	}
 
 	if !hasMagnet || torrent.Name == "" {
@@ -264,11 +261,6 @@ func cleanText(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.Join(strings.Fields(s), " ")
 	return s
-}
-
-func isDate(s string) bool {
-	dateRe := regexp.MustCompile(`^\d{2}\.\d{2}\.\d{4}$|^\d{4}-\d{2}-\d{2}$`)
-	return dateRe.MatchString(s)
 }
 
 func removeDuplicates(torrents []tracker.Torrent) []tracker.Torrent {

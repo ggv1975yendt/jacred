@@ -207,7 +207,7 @@ function initTableSorting(table) {
 
       rows.sort((a, b) => {
         let av = a.dataset[dkey], bv = b.dataset[dkey];
-        if (key === 'name') {
+        if (key === 'name' || key === 'date') {
           av = av || ''; bv = bv || '';
           return asc ? av.localeCompare(bv) : bv.localeCompare(av);
         }
@@ -272,7 +272,7 @@ function renderResults(results, query) {
       <th data-sortable="size">Размер</th>
       <th data-sortable="seeds">↑ Сиды</th>
       <th data-sortable="peers">↓ Пиры</th>
-      <th>Дата</th>
+      <th data-sortable="date">Дата</th>
       <th>Магнет</th>
     </tr>`;
     table.appendChild(thead);
@@ -286,6 +286,7 @@ function renderResults(results, query) {
       tr.dataset.sortSize  = parseSize(t.size);
       tr.dataset.sortSeeds = parseNum(t.seeds);
       tr.dataset.sortPeers = parseNum(t.peers);
+      tr.dataset.sortDate  = t.date || '';
 
       tr.innerHTML = `
         <td class="td-num">${i + 1}</td>

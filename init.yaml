@@ -20,7 +20,7 @@ trackers:
         username: ggv1975yendt
         password: eB8Y26jvTyb#YwU
     rutor.info:
-        enable: true
+        enable: false
         domain: rutor.info
         alt_domain: rutor.is
         categories:
@@ -36,7 +36,7 @@ trackers:
             - "13"
             - "15"
     rutracker.org:
-        enable: true
+        enable: false
         domain: rutracker.org
         alt_domain: ""
         categories:
@@ -254,13 +254,14 @@ trackers:
         username: Yuri.Vasiliev
         password: BD#250276
     xxxclub.to:
-        enable: false
+        enable: true
         domain: xxxclub.to
         alt_domain: ""
         categories:
             - "3"
+            - "7"
     xxxtor.com:
-        enable: false
+        enable: true
         domain: xxxtor.com
         alt_domain: ""
         categories: []
