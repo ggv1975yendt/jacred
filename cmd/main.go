@@ -8,6 +8,7 @@ import (
 	"jacred/cron/rutor"
 	"jacred/cron/rutracker"
 	"jacred/cron/xxxclub"
+	"jacred/cron/xxxtor"
 	"jacred/server"
 	"jacred/server/router"
 	"jacred/tracker"
@@ -31,6 +32,9 @@ func main() {
 		},
 		"rutracker.org": func(tcfg config.TrackerConfig) tracker.Tracker {
 			return rutracker.New(tcfg)
+		},
+		"xxxtor.com": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return xxxtor.New(tcfg)
 		},
 	}
 

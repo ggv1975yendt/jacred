@@ -259,3 +259,8 @@ trackers:
         alt_domain: ""
         categories:
             - "3"
+    xxxtor.com:
+        enable: false
+        domain: xxxtor.com
+        alt_domain: ""
+        categories: []

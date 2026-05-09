@@ -14,6 +14,7 @@ import (
 	"golang.org/x/text/encoding/charmap"
 
 	"jacred/config"
+	"jacred/dateutil"
 	"jacred/tracker"
 )
 
@@ -295,7 +296,7 @@ func parseSearchPage(content string) []searchEntry {
 			seeds: match1(rowSidRe, row),
 			peers: match1(rowPirRe, row),
 			size:  size,
-			date:  match1(rowDateRe, row),
+			date:  dateutil.Normalize(match1(rowDateRe, row)),
 		})
 	}
 	return entries

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/text/encoding/charmap"
 
 	"jacred/config"
+	"jacred/dateutil"
 	"jacred/tracker"
 )
 
@@ -206,7 +207,7 @@ func extractTorrentFromRow(tr *html.Node, baseURL string) *tracker.Torrent {
 	if len(cells) > 0 {
 		dateText := cleanText(extractText(cells[0]))
 		if isDate(dateText) {
-			torrent.Date = dateText
+			torrent.Date = dateutil.Normalize(dateText)
 		}
 	}
 

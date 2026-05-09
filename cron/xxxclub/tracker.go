@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/html"
 
 	"jacred/config"
+	"jacred/dateutil"
 	"jacred/tracker"
 )
 
@@ -143,7 +144,7 @@ func extractTorrent(li *html.Node, baseURL string) *tracker.Torrent {
 		case strings.Contains(cls, "toral"):
 			extractNameAndHash(c, baseURL, &t)
 		case strings.Contains(cls, "adde"):
-			t.Date = cleanText(extractText(c))
+			t.Date = dateutil.Normalize(cleanText(extractText(c)))
 		case strings.Contains(cls, "siz"):
 			t.Size = cleanText(extractText(c))
 		case strings.Contains(cls, "see"):

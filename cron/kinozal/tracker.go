@@ -17,6 +17,7 @@ import (
 	"golang.org/x/text/encoding/charmap"
 
 	"jacred/config"
+	"jacred/dateutil"
 	"jacred/tracker"
 )
 
@@ -396,7 +397,7 @@ func extractEntry(tr *html.Node) *searchEntry {
 			case 2:
 				e.size = normalizeSize(cleanText(extractText(td)))
 			case 3:
-				e.date = cleanText(extractText(td))
+				e.date = dateutil.Normalize(cleanText(extractText(td)))
 			}
 		case "sl_s":
 			e.seeds = cleanText(extractText(td))
