@@ -13,7 +13,6 @@ trackers:
     kinozal.tv:
         enable: false
         domain: kinozal.tv
-        alt_domain: ""
         categories:
             - "1002"
             - "1003"
@@ -35,10 +34,14 @@ trackers:
             - "17"
             - "13"
             - "15"
+    rutor.onlycartoon:
+        type: rutor.info
+        enable: true
+        categories:
+            - "7"
     rutracker.org:
         enable: false
         domain: rutracker.org
-        alt_domain: ""
         categories:
             - "549"
             - "22"
@@ -254,14 +257,12 @@ trackers:
         username: Yuri.Vasiliev
         password: BD#250276
     xxxclub.to:
-        enable: true
+        enable: false
         domain: xxxclub.to
-        alt_domain: ""
         categories:
             - "3"
             - "7"
     xxxtor.com:
-        enable: true
+        enable: false
         domain: xxxtor.com
-        alt_domain: ""
         categories: []

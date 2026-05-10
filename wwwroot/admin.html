@@ -63,7 +63,9 @@
   <div class="section">
     <div class="section-header">
       <div class="section-title">Трекеры</div>
+      <button class="btn-add" onclick="showAddAliasForm()">+ Псевдоним</button>
     </div>
+    <div id="add-alias-form" style="display:none;padding:12px 16px 4px"></div>
     <div id="trackers-container"></div>
   </div>
 
@@ -80,7 +82,13 @@
 
 <script>
 const CONFIG = {{.ConfigJSON}};
-const AVAILABLE_TRACKERS = {{.TrackersJSON}};
+const BASE_TRACKERS = {{.BaseTrackersJSON}};
+
+// All tracker names available for API assignment: factory names + aliases from config.
+function allTrackerNames() {
+  const s = new Set([...BASE_TRACKERS, ...Object.keys(state.trackers || {})]);
+  return [...s].sort();
+}
 
 let state = {
   port:         CONFIG.port || '9117',
@@ -141,11 +149,13 @@ function renderAPIs() {
   container.innerHTML = '';
   const list = document.createElement('div');
   list.className = 'apis-list';
-  state.apis.forEach((api, idx) => list.appendChild(buildAPICard(api, idx)));
+  const names = allTrackerNames();
+  state.apis.forEach((api, idx) => list.appendChild(buildAPICard(api, idx, names)));
   container.appendChild(list);
 }
 
-function buildAPICard(api, idx) {
+function buildAPICard(api, idx, trackerNames) {
+  trackerNames = trackerNames || allTrackerNames();
   const card = document.createElement('div');
   card.className = 'api-card';
   card.dataset.idx = idx;
@@ -215,7 +225,7 @@ function buildAPICard(api, idx) {
   body.appendChild(keyRow);
 
   // Trackers
-  if (AVAILABLE_TRACKERS.length > 0) {
+  if (trackerNames.length > 0) {
     const trRow = document.createElement('div');
     trRow.className = 'field-row';
     trRow.style.alignItems = 'flex-start';
@@ -223,7 +233,7 @@ function buildAPICard(api, idx) {
     const grid = document.createElement('div');
     grid.className = 'trackers-grid';
 
-    AVAILABLE_TRACKERS.forEach(name => {
+    trackerNames.forEach(name => {
       const active = (api.trackers || []).includes(name);
       const chip = document.createElement('label');
       chip.className = 'tracker-chip' + (active ? ' active' : '');
@@ -250,18 +260,186 @@ function buildAPICard(api, idx) {
 
 function renderTrackers() {
   const container = document.getElementById('trackers-container');
-  if (AVAILABLE_TRACKERS.length === 0) {
-    container.innerHTML = '<div class="apis-empty">Нет зарегистрированных трекеров.</div>';
-    return;
-  }
   container.innerHTML = '';
   const list = document.createElement('div');
   list.className = 'apis-list';
-  AVAILABLE_TRACKERS.forEach(name => list.appendChild(buildTrackerCard(name)));
+
+  // Base tracker cards (factory-registered, no type field)
+  BASE_TRACKERS.forEach(name => {
+    const tcfg = state.trackers[name] || {};
+    if (!tcfg.type) list.appendChild(buildBaseTrackerCard(name));
+  });
+
+  // Alias cards (config entries with type set)
+  Object.keys(state.trackers)
+    .filter(n => state.trackers[n] && state.trackers[n].type && state.trackers[n].type !== n)
+    .sort()
+    .forEach(n => list.appendChild(buildAliasCard(n)));
+
+  if (list.children.length === 0) {
+    list.innerHTML = '<div class="apis-empty">Нет зарегистрированных трекеров.</div>';
+  }
   container.appendChild(list);
 }
 
-function buildTrackerCard(name) {
+function buildAliasCard(name) {
+  const tcfg = state.trackers[name] || {};
+  const enabled = tcfg.enable === true;
+
+  const card = document.createElement('div');
+  card.className = 'api-card';
+  card.dataset.trackerName = name;
+
+  // ── Header ──
+  const hdr = document.createElement('div');
+  hdr.className = 'api-card-header';
+
+  const title = document.createElement('span');
+  title.className = 'api-num';
+  title.innerHTML = escHtml(name) +
+    `<span style="font-size:0.7em;opacity:0.55;font-weight:400;margin-left:6px">→ ${escHtml(tcfg.type || '')}</span>`;
+  hdr.appendChild(title);
+
+  const toggleLabel = document.createElement('label');
+  toggleLabel.className = 'tracker-enable-toggle';
+  toggleLabel.title = 'Включить / выключить';
+  const toggleInput = document.createElement('input');
+  toggleInput.type = 'checkbox';
+  toggleInput.checked = enabled;
+  const toggleTrack = document.createElement('span');
+  toggleTrack.className = 'toggle-track';
+  toggleTrack.appendChild(Object.assign(document.createElement('span'), { className: 'toggle-thumb' }));
+  const toggleText = document.createElement('span');
+  toggleText.className = 'toggle-text';
+  toggleText.textContent = enabled ? 'Включён' : 'Выключен';
+  toggleInput.addEventListener('change', function() {
+    if (!state.trackers[name]) state.trackers[name] = {};
+    state.trackers[name].enable = this.checked;
+    toggleText.textContent = this.checked ? 'Включён' : 'Выключен';
+  });
+  toggleLabel.append(toggleInput, toggleTrack, toggleText);
+  hdr.appendChild(toggleLabel);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn btn-danger';
+  delBtn.textContent = 'Удалить';
+  delBtn.addEventListener('click', () => {
+    delete state.trackers[name];
+    renderTrackers();
+    renderAPIs();
+  });
+  hdr.appendChild(delBtn);
+  card.appendChild(hdr);
+
+  // ── Body: type selector + categories ──
+  const body = document.createElement('div');
+  body.className = 'api-card-body';
+
+  // Type selector
+  const typeRow = document.createElement('div');
+  typeRow.className = 'field-row';
+  typeRow.innerHTML = '<span class="field-label">Базовый трекер</span>';
+  const typeSelect = document.createElement('select');
+  typeSelect.className = 'input field-input';
+  BASE_TRACKERS.forEach(bt => {
+    const opt = document.createElement('option');
+    opt.value = bt;
+    opt.textContent = bt;
+    if (bt === tcfg.type) opt.selected = true;
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.addEventListener('change', function() {
+    if (!state.trackers[name]) state.trackers[name] = {};
+    state.trackers[name].type = this.value;
+  });
+  typeRow.appendChild(typeSelect);
+  body.appendChild(typeRow);
+
+  // Categories
+  const catRow = document.createElement('div');
+  catRow.className = 'field-row';
+  catRow.innerHTML = '<span class="field-label">Категории</span>';
+  const catField = document.createElement('div');
+  catField.className = 'field-input';
+  const catInp = document.createElement('input');
+  catInp.className = 'input';
+  catInp.type = 'text';
+  catInp.placeholder = '1, 5, 4, …';
+  catInp.value = (tcfg.categories || []).join(', ');
+  catInp.addEventListener('input', function() {
+    if (!state.trackers[name]) state.trackers[name] = {};
+    state.trackers[name].categories = this.value.split(',').map(s => s.trim()).filter(Boolean);
+  });
+  catField.append(catInp, Object.assign(document.createElement('div'), {
+    className: 'input-hint',
+    textContent: 'Идентификаторы категорий через запятую'
+  }));
+  catRow.appendChild(catField);
+  body.appendChild(catRow);
+
+  card.appendChild(body);
+  return card;
+}
+
+// ─── Add alias form ────────────────────────────────────────
+
+function showAddAliasForm() {
+  const wrap = document.getElementById('add-alias-form');
+  if (wrap.style.display !== 'none') { wrap.style.display = 'none'; return; }
+
+  wrap.innerHTML = '';
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px';
+
+  const nameInp = document.createElement('input');
+  nameInp.className = 'input';
+  nameInp.type = 'text';
+  nameInp.placeholder = 'Имя псевдонима, например rutor.films';
+  nameInp.style.flex = '2';
+  nameInp.style.minWidth = '180px';
+
+  const typeSelect = document.createElement('select');
+  typeSelect.className = 'input';
+  typeSelect.style.flex = '1';
+  BASE_TRACKERS.forEach(bt => {
+    typeSelect.appendChild(Object.assign(document.createElement('option'), { value: bt, textContent: bt }));
+  });
+
+  const catInp = document.createElement('input');
+  catInp.className = 'input';
+  catInp.type = 'text';
+  catInp.placeholder = 'Категории: 1, 5, 4…';
+  catInp.style.flex = '2';
+  catInp.style.minWidth = '140px';
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-add';
+  addBtn.textContent = 'Добавить';
+  addBtn.addEventListener('click', () => {
+    const aliasName = nameInp.value.trim();
+    if (!aliasName) { nameInp.focus(); return; }
+    if (state.trackers[aliasName]) {
+      alert(`Трекер "${aliasName}" уже существует`);
+      return;
+    }
+    state.trackers[aliasName] = {
+      type: typeSelect.value,
+      enable: true,
+      categories: catInp.value.split(',').map(s => s.trim()).filter(Boolean)
+    };
+    wrap.style.display = 'none';
+    renderTrackers();
+    renderAPIs();
+  });
+
+  row.append(nameInp, typeSelect, catInp, addBtn);
+  wrap.appendChild(row);
+  wrap.style.display = 'block';
+  nameInp.focus();
+}
+
+function buildBaseTrackerCard(name) {
   const tcfg = state.trackers[name] || {};
   const enabled = tcfg.enable === true;
   const card = document.createElement('div');
@@ -392,7 +570,7 @@ function buildTrackerCard(name) {
 // ─── API Actions ───────────────────────────────────────────
 
 function addAPI() {
-  state.apis.push({ name: '', key: '', trackers: [...AVAILABLE_TRACKERS] });
+  state.apis.push({ name: '', key: '', trackers: [...allTrackerNames()] });
   renderAPIs();
   const cards = document.querySelectorAll('.api-card');
   if (cards.length > 0) cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });

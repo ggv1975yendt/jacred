@@ -48,8 +48,8 @@ type PageData struct {
 }
 
 type AdminPageData struct {
-	ConfigJSON   template.JS
-	TrackersJSON template.JS
+	ConfigJSON       template.JS
+	BaseTrackersJSON template.JS // factory names (for type selector in aliases)
 }
 
 func New(factories map[string]TrackerFactory, templateDir, cfgPath string, cfg *config.Config) (*Router, error) {
@@ -138,22 +138,40 @@ func (r *Router) checkAllTrackers() {
 	}
 	r.mu.RUnlock()
 
+	// Pass 1: ping base trackers only (no type, or type == self).
 	var wg sync.WaitGroup
 	for _, name := range names {
+		tcfg := cfg.Trackers[name]
+		if tcfg.Type != "" && tcfg.Type != name {
+			continue // alias — handled in pass 2
+		}
 		wg.Add(1)
-		go func(tname string) {
+		go func(tname string, tc config.TrackerConfig) {
 			defer wg.Done()
-			tcfg := cfg.Trackers[tname]
-			available := pingHost(tcfg.Domain)
-			if !available && tcfg.AltDomain != "" {
-				available = pingHost(tcfg.AltDomain)
+			available := pingHost(tc.Domain)
+			if !available && tc.AltDomain != "" {
+				available = pingHost(tc.AltDomain)
 			}
 			r.healthMu.Lock()
 			r.health[tname] = TrackerHealth{Available: available, CheckedAt: time.Now()}
 			r.healthMu.Unlock()
-		}(name)
+		}(name, tcfg)
 	}
 	wg.Wait()
+
+	// Pass 2: aliases inherit health from their base tracker.
+	now := time.Now()
+	r.healthMu.Lock()
+	for _, name := range names {
+		tcfg := cfg.Trackers[name]
+		if tcfg.Type == "" || tcfg.Type == name {
+			continue
+		}
+		if baseHealth, ok := r.health[tcfg.Type]; ok {
+			r.health[name] = TrackerHealth{Available: baseHealth.Available, CheckedAt: now}
+		}
+	}
+	r.healthMu.Unlock()
 }
 
 func pingHost(domain string) bool {
@@ -173,12 +191,30 @@ func pingHost(domain string) bool {
 
 func buildTrackers(factories map[string]TrackerFactory, cfg *config.Config) map[string]tracker.Tracker {
 	result := make(map[string]tracker.Tracker)
-	for name, factory := range factories {
-		tcfg := cfg.Trackers[name]
+	for name, tcfg := range cfg.Trackers {
 		if !tcfg.Enable {
 			continue
 		}
-		result[name] = factory(tcfg)
+
+		factoryKey := name
+		resolvedCfg := tcfg
+
+		// Alias: inherit all settings from base profile, override only categories.
+		if tcfg.Type != "" && tcfg.Type != name {
+			factoryKey = tcfg.Type
+			if base, ok := cfg.Trackers[tcfg.Type]; ok {
+				cats := resolvedCfg.Categories
+				resolvedCfg = base
+				resolvedCfg.Categories = cats
+			}
+		}
+
+		factory, ok := factories[factoryKey]
+		if !ok {
+			log.Printf("tracker %q: no factory for type %q, skipping", name, factoryKey)
+			continue
+		}
+		result[name] = factory(resolvedCfg)
 	}
 	return result
 }
@@ -327,8 +363,8 @@ func (r *Router) handleAdmin(w http.ResponseWriter, req *http.Request) {
 	}
 
 	data := AdminPageData{
-		ConfigJSON:   template.JS(cfgJSON),
-		TrackersJSON: template.JS(trackersJSON),
+		ConfigJSON:       template.JS(cfgJSON),
+		BaseTrackersJSON: template.JS(trackersJSON),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
