@@ -22,6 +22,24 @@ trackers:
             - "1003"
         username: ggv1975yendt
         password: eB8Y26jvTyb#YwU
+    korsars.pro:
+        enable: false
+        domain: korsars.pro
+        categories:
+            - "125"
+            - "259"
+            - "270"
+            - "271"
+            - "272"
+            - "273"
+            - "276"
+            - "282"
+            - "287"
+            - "286"
+            - "267"
+            - "303"
+            - "288"
+            - "121"
     rutor.info:
         enable: false
         domain: rutor.info

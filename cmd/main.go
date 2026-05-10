@@ -5,6 +5,7 @@ import (
 
 	"jacred/config"
 	"jacred/cron/kinozal"
+	"jacred/cron/korsars"
 	"jacred/cron/omagnet"
 	"jacred/cron/rutor"
 	"jacred/cron/rutracker"
@@ -39,6 +40,9 @@ func main() {
 		},
 		"16mag.net": func(tcfg config.TrackerConfig) tracker.Tracker {
 			return omagnet.New(tcfg)
+		},
+		"korsars.pro": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return korsars.New(tcfg)
 		},
 	}
 
