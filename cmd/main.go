@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"jacred/config"
+	"jacred/cron/bigfangroup"
 	"jacred/cron/kinozal"
 	"jacred/cron/korsars"
 	"jacred/cron/omagnet"
@@ -43,6 +44,9 @@ func main() {
 		},
 		"korsars.pro": func(tcfg config.TrackerConfig) tracker.Tracker {
 			return korsars.New(tcfg)
+		},
+		"bigfangroup.org": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return bigfangroup.New(tcfg)
 		},
 	}
 

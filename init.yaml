@@ -11,9 +11,40 @@ apis:
         - rutor.info
 trackers:
     16mag.net:
-        enable: true
+        enable: false
         domain: 16mag.net
         categories: []
+    bigfangroup.org:
+        enable: true
+        domain: www.bigfangroup.org
+        categories:
+            - "51"
+            - "12"
+            - "13"
+            - "52"
+            - "33"
+            - "48"
+            - "21"
+            - "32"
+            - "39"
+            - "28"
+            - "18"
+            - "24"
+            - "36"
+            - "53"
+            - "19"
+            - "20"
+            - "31"
+            - "29"
+            - "27"
+            - "11"
+            - "47"
+            - "22"
+            - "26"
+            - "23"
+            - "30"
+            - "42"
+            - "14"
     kinozal.tv:
         enable: false
         domain: kinozal.tv
@@ -41,7 +72,7 @@ trackers:
             - "288"
             - "121"
     rutor.info:
-        enable: false
+        enable: true
         domain: rutor.info
         alt_domain: rutor.is
         categories:
