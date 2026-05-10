@@ -10,6 +10,10 @@ apis:
       trackers:
         - rutor.info
 trackers:
+    16mag.net:
+        enable: true
+        domain: 16mag.net
+        categories: []
     kinozal.tv:
         enable: false
         domain: kinozal.tv
@@ -36,7 +40,7 @@ trackers:
             - "15"
     rutor.onlycartoon:
         type: rutor.info
-        enable: true
+        enable: false
         categories:
             - "7"
     rutracker.org:

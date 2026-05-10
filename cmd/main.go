@@ -5,6 +5,7 @@ import (
 
 	"jacred/config"
 	"jacred/cron/kinozal"
+	"jacred/cron/omagnet"
 	"jacred/cron/rutor"
 	"jacred/cron/rutracker"
 	"jacred/cron/xxxclub"
@@ -35,6 +36,9 @@ func main() {
 		},
 		"xxxtor.com": func(tcfg config.TrackerConfig) tracker.Tracker {
 			return xxxtor.New(tcfg)
+		},
+		"16mag.net": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return omagnet.New(tcfg)
 		},
 	}
 
