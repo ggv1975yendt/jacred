@@ -2,7 +2,7 @@ port: "9117"
 ping_interval: 10
 admin_hidden: true
 admin_secret_hash: $2a$10$jjy8jVHXsIBQadeXqgpNEOydeKpjc8nwrXl9dQG2i0legO2qqL7xu
-enable_playback: true
+enable_playback: false
 apis:
     - name: Test API
       key: mykey123

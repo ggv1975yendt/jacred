@@ -527,7 +527,7 @@ td { padding: 13px 16px; vertical-align: middle; }
 .td-seeds { color: var(--seed); font-weight: 700; }
 .td-peers { color: var(--peer); }
 .td-date  { white-space: nowrap; color: var(--muted); font-size: 11px; }
-.td-magnet { text-align: center; }
+.td-magnet { text-align: left; white-space: nowrap; }
 
 /* Magnet button */
 .btn-magnet {
@@ -711,6 +711,25 @@ td { padding: 13px 16px; vertical-align: middle; }
 .btn-play.ts-err { border-color: var(--accent2); color: var(--accent2); }
 .btn-play:disabled { opacity: .45; pointer-events: none; }
 
+.btn-m3u {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 6px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+  margin-left: 4px;
+  min-width: 32px;
+}
+.btn-m3u:hover { border-color: var(--accent); color: var(--accent); }
+
 @keyframes ts-spin { to { transform: rotate(360deg); } }
 .ts-spin {
   display: inline-block;
@@ -776,6 +795,82 @@ td { padding: 13px 16px; vertical-align: middle; }
   padding: 14px 20px;
   border-top: 1px solid var(--border);
 }
+
+/* ═══════════════════════════════════════
+   Player modal
+   ═══════════════════════════════════════ */
+.player-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.92);
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.player-overlay.hidden { display: none; }
+
+.player-wrap {
+  width: 100%;
+  max-width: 1040px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.player-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-ext {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: border-color .15s, color .15s;
+}
+.player-ext:hover { border-color: var(--accent); color: var(--accent); }
+
+.player-close {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 5px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.player-close:hover { border-color: var(--accent2); color: var(--accent2); }
+
+.player-body {
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16/9;
+}
+.player-body video { width: 100%; height: 100%; display: block; }
+
+/* Plyr color override to match accent */
+.plyr { --plyr-color-main: var(--accent); }
 
 /* ═══════════════════════════════════════
    ─── Admin page ───────────────────────

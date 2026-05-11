@@ -6,6 +6,7 @@
 <title>TorrentSeek — Поиск торрентов</title>
 <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
 </head>
 <body>
 <div class="container">
@@ -65,6 +66,24 @@
   <div id="results-area"></div>
 </div>
 
+<!-- Player modal -->
+<div class="player-overlay hidden" id="player-overlay">
+  <div class="player-wrap">
+    <div class="player-head">
+      <span class="player-title" id="player-title"></span>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <a class="player-ext" id="player-ext" href="#" target="_blank" rel="noopener" title="Открыть в новой вкладке / внешнем плеере">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+        </a>
+        <button class="player-close" id="player-close" type="button" title="Закрыть">&#x2715;</button>
+      </div>
+    </div>
+    <div class="player-body">
+      <video id="player-video" playsinline></video>
+    </div>
+  </div>
+</div>
+
 <!-- TorrServer settings modal -->
 <div class="ts-overlay hidden" id="ts-overlay">
   <div class="ts-modal" role="dialog" aria-modal="true" aria-label="Настройки TorrServer">
@@ -99,6 +118,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
 <script>
 const TRACKERS        = {{.TrackersJSON}};
 const ADMIN_HIDDEN    = {{.AdminHidden}};
@@ -219,6 +240,7 @@ const SVG_COPY     = '<svg width="10" height="10" viewBox="0 0 24 24" fill="curr
 const SVG_CHECK    = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
 const SVG_TS_SEND  = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>';
 const SVG_TS_PLAY  = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const SVG_TS_M3U   = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>';
 const SVG_TS_SPIN  = '<span class="ts-spin"></span>';
 
 // ─── Copy magnet ───────────────────────────────────────────
@@ -389,12 +411,19 @@ function renderResults(results, query) {
       cpBtn.addEventListener('click', () => copyMagnet(cpBtn, t.magnet));
       cell.appendChild(cpBtn);
 
+      const m3uBtn = document.createElement('button');
+      m3uBtn.className     = 'btn-m3u';
+      m3uBtn.title         = 'Скачать плейлист (.m3u)';
+      m3uBtn.style.display = 'none';
+      m3uBtn.innerHTML     = SVG_TS_M3U;
+      m3uBtn.addEventListener('click', () => downloadPlaylist(t.magnet, t.name));
+
       const tsBtn = document.createElement('button');
       tsBtn.className    = 'btn-ts';
       tsBtn.title        = 'Добавить в TorrServer';
       tsBtn.style.display = tsHasUrl() ? '' : 'none';
       tsBtn.innerHTML    = SVG_TS_SEND;
-      tsBtn.addEventListener('click', () => addToTorrServer(tsBtn, t.magnet));
+      tsBtn.addEventListener('click', () => addToTorrServer(tsBtn, t.magnet, m3uBtn));
       cell.appendChild(tsBtn);
 
       if (ENABLE_PLAYBACK) {
@@ -403,9 +432,11 @@ function renderResults(results, query) {
         playBtn.title         = 'Воспроизвести через TorrServer';
         playBtn.style.display = tsHasUrl() ? '' : 'none';
         playBtn.innerHTML     = SVG_TS_PLAY;
-        playBtn.addEventListener('click', () => playOnTorrServer(playBtn, t.magnet));
+        playBtn.addEventListener('click', () => playOnTorrServer(playBtn, t.magnet, t.name, m3uBtn));
         cell.appendChild(playBtn);
       }
+
+      cell.appendChild(m3uBtn);
 
       tbody.appendChild(tr);
     });
@@ -501,6 +532,9 @@ function tsUpdateBtns() {
   if (ENABLE_PLAYBACK) {
     document.querySelectorAll('.btn-play').forEach(b => { b.style.display = vis ? '' : 'none'; });
   }
+  if (!vis) {
+    document.querySelectorAll('.btn-m3u').forEach(b => { b.style.display = 'none'; });
+  }
 }
 
 // Modal
@@ -546,7 +580,7 @@ function tsUpdateBtns() {
   });
 })();
 
-async function addToTorrServer(btn, magnet) {
+async function addToTorrServer(btn, magnet, m3uBtn) {
   const s = tsGet();
   if (!s.url || !magnet) return;
 
@@ -585,6 +619,7 @@ async function addToTorrServer(btn, magnet) {
       btn.innerHTML = SVG_CHECK;
       btn.classList.add('ts-ok');
       btn.title = 'Торрент отправлен на TorrServer';
+      if (m3uBtn) m3uBtn.style.display = '';
       setTimeout(() => {
         btn.innerHTML = SVG_TS_SEND;
         btn.classList.remove('ts-ok');
@@ -610,7 +645,76 @@ async function addToTorrServer(btn, magnet) {
   }
 }
 
-async function playOnTorrServer(btn, magnet) {
+// ─── Embedded player ───────────────────────────────────────
+let _hls  = null;
+let _plyr = null;
+
+function openPlayer(magnet, name, authHeader, baseUrl) {
+  const overlay  = document.getElementById('player-overlay');
+  const videoEl  = document.getElementById('player-video');
+  const titleEl  = document.getElementById('player-title');
+  const extLink  = document.getElementById('player-ext');
+
+  if (_hls)  { _hls.destroy();  _hls  = null; }
+  if (_plyr) { _plyr.destroy(); _plyr = null; }
+
+  const hlsUrl = baseUrl + '/stream?link=' + encodeURIComponent(magnet) + '&index=0&m3u8';
+  const rawUrl = baseUrl + '/stream?link=' + encodeURIComponent(magnet) + '&index=0&play';
+
+  titleEl.textContent = name || 'Воспроизведение';
+  extLink.href = rawUrl;
+  overlay.classList.remove('hidden');
+
+  _plyr = new Plyr(videoEl, {
+    controls: ['play-large','play','progress','current-time','duration','mute','volume','settings','fullscreen'],
+    settings: ['quality','speed'],
+    speed:    { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+  });
+
+  if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+    _hls = new Hls({
+      xhrSetup: authHeader ? function(xhr) { xhr.setRequestHeader('Authorization', authHeader); } : undefined
+    });
+    _hls.loadSource(hlsUrl);
+    _hls.attachMedia(videoEl);
+    _hls.on(Hls.Events.MANIFEST_PARSED, function() { videoEl.play(); });
+    _hls.on(Hls.Events.ERROR, function(e, data) {
+      if (data.fatal) {
+        _hls.destroy(); _hls = null;
+        videoEl.src = rawUrl;
+        videoEl.play();
+      }
+    });
+  } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+    videoEl.src = hlsUrl;
+    videoEl.play();
+  } else {
+    videoEl.src = rawUrl;
+    videoEl.play();
+  }
+}
+
+function closePlayer() {
+  document.getElementById('player-overlay').classList.add('hidden');
+  if (_hls)  { _hls.destroy();  _hls  = null; }
+  if (_plyr) { _plyr.pause(); _plyr.destroy(); _plyr = null; }
+  const v = document.getElementById('player-video');
+  v.removeAttribute('src');
+  v.load();
+}
+
+// Player controls wiring
+document.getElementById('player-close').addEventListener('click', closePlayer);
+document.getElementById('player-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closePlayer();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && !document.getElementById('player-overlay').classList.contains('hidden')) {
+    closePlayer();
+  }
+});
+
+async function playOnTorrServer(btn, magnet, name, m3uBtn) {
   const s = tsGet();
   if (!s.url || !magnet) return;
 
@@ -649,7 +753,8 @@ async function playOnTorrServer(btn, magnet) {
       btn.innerHTML = SVG_CHECK;
       btn.classList.add('ts-ok');
       btn.title = 'Открываем плеер…';
-      window.open(baseUrl + '/stream?link=' + encodeURIComponent(magnet) + '&index=0&play', '_blank');
+      if (m3uBtn) m3uBtn.style.display = '';
+      openPlayer(magnet, name, authHeader, baseUrl);
       setTimeout(() => {
         btn.innerHTML = SVG_TS_PLAY;
         btn.classList.remove('ts-ok');
@@ -673,6 +778,25 @@ async function playOnTorrServer(btn, magnet) {
     btn.title = 'Ошибка сети. Проверьте URL и CORS.';
     setTimeout(() => { btn.classList.remove('ts-err'); btn.title = origTitle; }, 3000);
   }
+}
+
+// ─── Download playlist (.m3u) ──────────────────────────────
+function downloadPlaylist(magnet, name) {
+  const s = tsGet();
+  if (!s.url || !magnet) return;
+
+  let baseUrl = '';
+  try {
+    const u = new URL(s.url);
+    u.username = ''; u.password = '';
+    baseUrl = u.origin;
+  } catch(e) { return; }
+
+  const hashMatch = magnet.match(/xt=urn:btih:([a-fA-F0-9]{40}|[a-zA-Z2-7]{32})/i);
+  const hash = hashMatch ? hashMatch[1] : encodeURIComponent(magnet);
+  const safeName = (name || 'playlist').replace(/[/\\:*?"<>|]/g, '_');
+
+  window.open(baseUrl + '/stream/' + encodeURIComponent(safeName) + '.m3u?link=' + hash + '&m3u', '_blank');
 }
 
 // ─── Admin link visibility ─────────────────────────────────
