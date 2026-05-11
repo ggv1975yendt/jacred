@@ -2,7 +2,7 @@ port: "9117"
 ping_interval: 10
 admin_hidden: true
 admin_secret_hash: $2a$10$jjy8jVHXsIBQadeXqgpNEOydeKpjc8nwrXl9dQG2i0legO2qqL7xu
-enable_playback: false
+enable_playback: true
 apis:
     - name: Test API
       key: mykey123
@@ -56,6 +56,10 @@ trackers:
             - "1003"
         username: ggv1975yendt
         password: eB8Y26jvTyb#YwU
+    knaben.org:
+        enable: false
+        domain: knaben.org
+        categories: []
     korsars.pro:
         enable: false
         domain: korsars.pro
@@ -74,6 +78,10 @@ trackers:
             - "303"
             - "288"
             - "121"
+    onejav.com:
+        enable: false
+        domain: onejav.com
+        categories: []
     rutor.info:
         enable: true
         domain: rutor.info
@@ -312,6 +320,19 @@ trackers:
             - "2016"
         username: Yuri.Vasiliev
         password: BD#250276
+    therarbg.com:
+        enable: false
+        domain: therarbg.com
+        categories:
+            - Movies
+            - TV
+            - Anime
+            - Documentaries
+    therarbg.xxx:
+        type: therarbg.com
+        enable: false
+        categories:
+            - xxx
     xxxclub.to:
         enable: false
         domain: xxxclub.to

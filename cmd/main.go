@@ -6,10 +6,13 @@ import (
 	"jacred/config"
 	"jacred/cron/bigfangroup"
 	"jacred/cron/kinozal"
+	"jacred/cron/knaben"
 	"jacred/cron/korsars"
 	"jacred/cron/omagnet"
+	"jacred/cron/onejav"
 	"jacred/cron/rutor"
 	"jacred/cron/rutracker"
+	"jacred/cron/therarbg"
 	"jacred/cron/xxxclub"
 	"jacred/cron/xxxtor"
 	"jacred/server"
@@ -47,6 +50,15 @@ func main() {
 		},
 		"bigfangroup.org": func(tcfg config.TrackerConfig) tracker.Tracker {
 			return bigfangroup.New(tcfg)
+		},
+		"onejav.com": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return onejav.New(tcfg)
+		},
+		"knaben.org": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return knaben.New(tcfg)
+		},
+		"therarbg.com": func(tcfg config.TrackerConfig) tracker.Tracker {
+			return therarbg.New(tcfg)
 		},
 	}
 

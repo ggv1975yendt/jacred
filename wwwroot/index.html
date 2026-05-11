@@ -236,6 +236,7 @@ function parseNum(str) {
 
 // ─── SVG icons ─────────────────────────────────────────────
 const SVG_MAGNET   = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9v4h2V9c0-2.76 2.24-5 5-5s5 2.24 5 5v4h2V9c0-3.87-3.13-7-7-7zm-1 10v8h2v-8h-2z"/></svg>';
+const SVG_TORRENT  = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>';
 const SVG_COPY     = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
 const SVG_CHECK    = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
 const SVG_TS_SEND  = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>';
@@ -397,11 +398,18 @@ function renderResults(results, query) {
 
       // Build magnet cell via DOM (keeps href safe from innerHTML XSS)
       const cell   = tr.querySelector('.td-magnet');
+      const isTorrentFile = t.magnet && t.magnet.startsWith('http');
       const link   = document.createElement('a');
       link.className = 'btn-magnet';
       link.href      = t.magnet || '#';
-      link.title     = 'Открыть магнет-ссылку';
-      link.innerHTML = SVG_MAGNET + ' MAGNET';
+      if (isTorrentFile) {
+        link.title     = 'Скачать .torrent файл';
+        link.innerHTML = SVG_TORRENT + ' .torrent';
+        link.setAttribute('download', '');
+      } else {
+        link.title     = 'Открыть магнет-ссылку';
+        link.innerHTML = SVG_MAGNET + ' MAGNET';
+      }
       cell.appendChild(link);
 
       const cpBtn = document.createElement('button');
