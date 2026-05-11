@@ -79,6 +79,10 @@ func New(factories map[string]TrackerFactory, templateDir, cfgPath string, cfg *
 	if err != nil {
 		return nil, fmt.Errorf("static dir: %w", err)
 	}
+	absIco, err := filepath.Abs(filepath.Join(templateDir, "ico"))
+	if err != nil {
+		return nil, fmt.Errorf("ico dir: %w", err)
+	}
 
 	r := &Router{
 		cfg:           cfg,
@@ -93,6 +97,7 @@ func New(factories map[string]TrackerFactory, templateDir, cfgPath string, cfg *
 	}
 
 	r.Mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(absStatic))))
+	r.Mux.Handle("/ico/", http.StripPrefix("/ico/", http.FileServer(http.Dir(absIco))))
 	r.Mux.HandleFunc("/", r.handleIndex)
 	r.Mux.HandleFunc("/api/search", r.handleAPISearch)
 	r.Mux.HandleFunc("/api/ui/search", r.handleUISearch)
@@ -601,6 +606,9 @@ func (r *Router) searchTrackers(trackers []tracker.Tracker, query string, sortBy
 			defer wg.Done()
 			result := tr.Search(query, sortBy)
 			result.Source = tr.Name()
+			for i := range result.Results {
+				result.Results[i].Source = result.Source
+			}
 			results[idx] = result
 		}(i, t)
 	}

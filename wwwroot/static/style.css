@@ -517,6 +517,8 @@ tbody tr:hover { background: var(--row-hover); }
 td { padding: 13px 16px; vertical-align: middle; }
 
 .td-num  { color: var(--muted); font-size: 11px; text-align: center; width: 44px; }
+.td-ico  { width: 24px; text-align: center; padding-left: 4px; padding-right: 4px; }
+.th-ico  { width: 24px; }
 .td-name { max-width: 520px; line-height: 1.5; }
 .torrent-name { color: var(--text); word-break: break-word; }
 .torrent-name a { color: inherit; text-decoration: none; transition: color .15s; }

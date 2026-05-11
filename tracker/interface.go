@@ -10,6 +10,7 @@ type Torrent struct {
 	Peers    string `json:"peers"`
 	Date     string `json:"date"`
 	InfoHash string `json:"info_hash"`
+	Source   string `json:"source,omitempty"`
 }
 
 // SearchResult contains search results from a tracker

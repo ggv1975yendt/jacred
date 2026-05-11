@@ -15,7 +15,7 @@ trackers:
         domain: 16mag.net
         categories: []
     bigfangroup.org:
-        enable: true
+        enable: false
         domain: www.bigfangroup.org
         categories:
             - "51"
@@ -72,7 +72,7 @@ trackers:
             - "288"
             - "121"
     rutor.info:
-        enable: true
+        enable: false
         domain: rutor.info
         alt_domain: rutor.is
         categories:
@@ -89,7 +89,7 @@ trackers:
             - "15"
     rutor.onlycartoon:
         type: rutor.info
-        enable: false
+        enable: true
         categories:
             - "7"
     rutracker.org:

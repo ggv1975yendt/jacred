@@ -255,6 +255,7 @@ function renderResults(results, query) {
     // Status bar
     const status = document.createElement('div');
     status.className = 'status';
+    const icoName = (result.source || '').split('.')[0];
     status.innerHTML = `<span>Запрос: <strong>${esc(result.query || query)}</strong></span>
       <span class="count">${result.count} результатов</span>
       <span class="source"><span class="dot"></span>${esc(result.source)}</span>`;
@@ -268,6 +269,7 @@ function renderResults(results, query) {
     const thead = document.createElement('thead');
     thead.innerHTML = `<tr>
       <th>#</th>
+      <th class="th-ico"></th>
       <th data-sortable="name">Название</th>
       <th data-sortable="size">Размер</th>
       <th data-sortable="seeds">↑ Сиды</th>
@@ -290,6 +292,7 @@ function renderResults(results, query) {
 
       tr.innerHTML = `
         <td class="td-num">${i + 1}</td>
+        <td class="td-ico"></td>
         <td class="td-name"><div class="torrent-name"></div></td>
         <td class="td-size">${esc(t.size  || '—')}</td>
         <td class="td-seeds">${esc(t.seeds || '—')}</td>
@@ -297,6 +300,20 @@ function renderResults(results, query) {
         <td class="td-date">${esc(t.date  || '—')}</td>
         <td class="td-magnet"></td>
       `;
+
+      // Build icon cell — use per-torrent source, fall back to table source
+      const icoCell = tr.querySelector('.td-ico');
+      const torrentIco = ((t.source || result.source) || '').split('.')[0];
+      if (torrentIco) {
+        const icoImg = document.createElement('img');
+        icoImg.src    = '/ico/' + torrentIco + '.ico';
+        icoImg.width  = 16;
+        icoImg.height = 16;
+        icoImg.title  = t.source || result.source || '';
+        icoImg.style.cssText = 'display:block;vertical-align:middle';
+        icoImg.onerror = function() { this.style.display = 'none'; };
+        icoCell.appendChild(icoImg);
+      }
 
       // Build name cell via DOM to keep URL safe from XSS
       const nameDiv = tr.querySelector('.torrent-name');
@@ -308,7 +325,7 @@ function renderResults(results, query) {
         a.textContent = t.name || '';
         nameDiv.appendChild(a);
       } else {
-        nameDiv.textContent = t.name || '';
+        nameDiv.appendChild(document.createTextNode(t.name || ''));
       }
 
       // Build magnet cell via DOM (keeps href safe from innerHTML XSS)
