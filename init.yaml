@@ -1,5 +1,8 @@
 port: "9117"
 ping_interval: 10
+admin_hidden: true
+admin_secret_hash: $2a$10$jjy8jVHXsIBQadeXqgpNEOydeKpjc8nwrXl9dQG2i0legO2qqL7xu
+enable_playback: true
 apis:
     - name: Test API
       key: mykey123
@@ -72,7 +75,7 @@ trackers:
             - "288"
             - "121"
     rutor.info:
-        enable: false
+        enable: true
         domain: rutor.info
         alt_domain: rutor.is
         categories:
@@ -89,7 +92,7 @@ trackers:
             - "15"
     rutor.onlycartoon:
         type: rutor.info
-        enable: true
+        enable: false
         categories:
             - "7"
     rutracker.org:

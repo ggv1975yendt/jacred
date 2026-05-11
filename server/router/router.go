@@ -44,7 +44,9 @@ type Router struct {
 }
 
 type PageData struct {
-	TrackersJSON template.JS
+	TrackersJSON   template.JS
+	AdminHidden    template.JS
+	EnablePlayback template.JS
 }
 
 type AdminPageData struct {
@@ -104,6 +106,8 @@ func New(factories map[string]TrackerFactory, templateDir, cfgPath string, cfg *
 	r.Mux.HandleFunc("/api/trackers/status", r.handleTrackersStatus)
 	r.Mux.HandleFunc("/admin", r.handleAdmin)
 	r.Mux.HandleFunc("/admin/save", r.handleAdminSave)
+	r.Mux.HandleFunc("/api/admin-status", r.handleAdminStatus)
+	r.Mux.HandleFunc("/api/admin-check", r.handleAdminCheck)
 
 	r.startHealthChecker(context.Background())
 
@@ -254,7 +258,23 @@ func (r *Router) handleIndex(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
-	r.renderPage(w, PageData{TrackersJSON: r.trackerNamesJSON()})
+	r.mu.RLock()
+	adminHidden    := r.cfg.AdminHidden
+	enablePlayback := r.cfg.EnablePlayback
+	r.mu.RUnlock()
+	adminHiddenJS := template.JS("false")
+	if adminHidden {
+		adminHiddenJS = template.JS("true")
+	}
+	enablePlaybackJS := template.JS("false")
+	if enablePlayback {
+		enablePlaybackJS = template.JS("true")
+	}
+	r.renderPage(w, PageData{
+		TrackersJSON:   r.trackerNamesJSON(),
+		AdminHidden:    adminHiddenJS,
+		EnablePlayback: enablePlaybackJS,
+	})
 }
 
 func (r *Router) handleUISearch(w http.ResponseWriter, req *http.Request) {
@@ -388,11 +408,30 @@ func (r *Router) handleAdminSave(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var newCfg config.Config
-	if err := json.NewDecoder(req.Body).Decode(&newCfg); err != nil {
+	var payload struct {
+		config.Config
+		AdminSecret string `json:"admin_secret"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request: " + err.Error()})
 		return
+	}
+	newCfg := payload.Config
+
+	// If a new plaintext secret was provided, hash it; otherwise preserve the existing hash.
+	if plain := strings.TrimSpace(payload.AdminSecret); plain != "" {
+		hash, err := config.HashSecret(plain)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "hashing secret: " + err.Error()})
+			return
+		}
+		newCfg.AdminSecretHash = hash
+	} else {
+		r.mu.RLock()
+		newCfg.AdminSecretHash = r.cfg.AdminSecretHash
+		r.mu.RUnlock()
 	}
 
 	if strings.TrimSpace(newCfg.Port) == "" {
@@ -446,6 +485,35 @@ func (r *Router) handleAdminSave(w http.ResponseWriter, req *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (r *Router) handleAdminStatus(w http.ResponseWriter, req *http.Request) {
+	r.mu.RLock()
+	hidden := r.cfg.AdminHidden
+	r.mu.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"hidden": hidden})
+}
+
+func (r *Router) handleAdminCheck(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Phrase string `json:"phrase"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	r.mu.RLock()
+	secretHash := r.cfg.AdminSecretHash
+	hidden := r.cfg.AdminHidden
+	r.mu.RUnlock()
+	ok := hidden && secretHash != "" && config.VerifySecret(body.Phrase, secretHash)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"ok": ok})
 }
 
 // ─── Shared helpers ────────────────────────────────────────

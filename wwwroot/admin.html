@@ -25,6 +25,49 @@
     </div>
   </header>
 
+  <!-- Access settings -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Доступ</div>
+    </div>
+    <div class="section-body">
+      <div class="form-row">
+        <div class="form-label">Скрыть панель</div>
+        <div class="form-field">
+          <label class="tracker-enable-toggle" style="margin-top:4px">
+            <input type="checkbox" id="cfg-admin-hidden">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text" id="cfg-admin-hidden-text">Нет</span>
+          </label>
+          <div class="input-hint">Скрыть ссылку «Администрирование» от обычных пользователей</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Секретная фраза</div>
+        <div class="form-field">
+          <div class="key-group" style="max-width:320px">
+            <input class="input" id="cfg-admin-secret" type="password" placeholder="Оставьте пустым, чтобы не менять" style="flex:1">
+            <button class="btn-icon" type="button" id="cfg-admin-secret-eye" title="Показать / скрыть фразу">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </button>
+          </div>
+          <div class="input-hint">Пользователь увидит ссылку, введя эту фразу в поле поиска. Хранится в виде хэша.</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Воспроизведение</div>
+        <div class="form-field">
+          <label class="tracker-enable-toggle" style="margin-top:4px">
+            <input type="checkbox" id="cfg-enable-playback">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text" id="cfg-enable-playback-text">Нет</span>
+          </label>
+          <div class="input-hint">Показывать кнопку «Воспроизвести» рядом с «Добавить в TorrServer»</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Server settings -->
   <div class="section">
     <div class="section-header">
@@ -91,8 +134,11 @@ function allTrackerNames() {
 }
 
 let state = {
-  port:         CONFIG.port || '9117',
-  pingInterval: CONFIG.ping_interval || 10,
+  port:           CONFIG.port || '9117',
+  pingInterval:   CONFIG.ping_interval || 10,
+  adminHidden:    CONFIG.admin_hidden || false,
+  adminSecret:    CONFIG.admin_secret || '',
+  enablePlayback: CONFIG.enable_playback || false,
   apis: (CONFIG.apis || []).map(a => ({
     name: a.name || '',
     key: a.key || '',
@@ -104,6 +150,33 @@ let state = {
 const initialPort = state.port;
 
 // ─── Boot ─────────────────────────────────────────────────
+(function() {
+  const cb = document.getElementById('cfg-admin-hidden');
+  const txt = document.getElementById('cfg-admin-hidden-text');
+  cb.checked = state.adminHidden;
+  txt.textContent = state.adminHidden ? 'Да' : 'Нет';
+  cb.addEventListener('change', function() {
+    state.adminHidden = this.checked;
+    txt.textContent = this.checked ? 'Да' : 'Нет';
+  });
+  const inp = document.getElementById('cfg-admin-secret');
+  // Never pre-fill — hash is not reversible; empty means "don't change"
+  inp.value = '';
+  inp.addEventListener('input', function() { state.adminSecret = this.value; });
+  document.getElementById('cfg-admin-secret-eye').addEventListener('click', function() {
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+
+  const pbCb  = document.getElementById('cfg-enable-playback');
+  const pbTxt = document.getElementById('cfg-enable-playback-text');
+  pbCb.checked = state.enablePlayback;
+  pbTxt.textContent = state.enablePlayback ? 'Да' : 'Нет';
+  pbCb.addEventListener('change', function() {
+    state.enablePlayback = this.checked;
+    pbTxt.textContent = this.checked ? 'Да' : 'Нет';
+  });
+})();
+
 document.getElementById('cfg-port').value = state.port;
 document.getElementById('cfg-port').addEventListener('input', function() {
   document.getElementById('port-warning').classList.toggle('visible', this.value.trim() !== initialPort);
@@ -619,7 +692,9 @@ async function saveConfig() {
     if (keyInput) state.apis[idx].key = keyInput.value.trim();
   });
 
-  const payload = { port, ping_interval: pingInterval, apis: state.apis, trackers: state.trackers };
+  const payload = { port, ping_interval: pingInterval, admin_hidden: state.adminHidden, enable_playback: state.enablePlayback, apis: state.apis, trackers: state.trackers };
+  // Send plaintext only if the user typed something; server hashes it and ignores if empty
+  if (state.adminSecret) payload.admin_secret = state.adminSecret;
 
   const spinner = document.getElementById('save-spinner');
   const statusEl = document.getElementById('save-status');

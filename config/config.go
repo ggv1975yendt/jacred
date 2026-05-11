@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,6 +27,9 @@ type TrackerConfig struct {
 type Config struct {
 	Port         string                   `yaml:"port" json:"port"`
 	PingInterval int                      `yaml:"ping_interval" json:"ping_interval"`
+	AdminHidden      bool                     `yaml:"admin_hidden" json:"admin_hidden"`
+	AdminSecretHash  string                   `yaml:"admin_secret_hash" json:"admin_secret_hash"`
+	EnablePlayback   bool                     `yaml:"enable_playback" json:"enable_playback"`
 	APIs         []APIConfig              `yaml:"apis" json:"apis"`
 	Trackers     map[string]TrackerConfig `yaml:"trackers" json:"trackers"`
 }
@@ -55,6 +59,18 @@ func Load(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func HashSecret(plain string) (string, error) {
+	b, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func VerifySecret(plain, hash string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
 }
 
 func Save(path string, cfg *Config) error {

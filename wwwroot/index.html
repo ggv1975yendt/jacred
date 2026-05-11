@@ -11,13 +11,19 @@
 <div class="container">
   <header class="index-header">
     <div class="header-controls">
-      <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему"></button>
-      <a class="admin-link" href="/admin">
+      <a class="admin-link" id="admin-link" href="/admin">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
           <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.01 7.01 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.37 1.04.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/>
         </svg>
         Администрирование
       </a>
+      <button class="torrserver-btn" id="torrserver-btn" type="button" title="Настройки TorrServer">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zm0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/>
+        </svg>
+        TorrServer
+      </button>
+      <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему"></button>
     </div>
     <div class="logo">Torrent<span>Seek</span></div>
     <div class="tagline">Поиск по торрент-трекерам</div>
@@ -59,8 +65,44 @@
   <div id="results-area"></div>
 </div>
 
+<!-- TorrServer settings modal -->
+<div class="ts-overlay hidden" id="ts-overlay">
+  <div class="ts-modal" role="dialog" aria-modal="true" aria-label="Настройки TorrServer">
+    <div class="ts-modal-head">
+      <span>Настройки TorrServer</span>
+      <button class="ts-modal-x" id="ts-modal-x" type="button" aria-label="Закрыть">&#x2715;</button>
+    </div>
+    <div class="ts-modal-body">
+      <div class="ts-field">
+        <label for="ts-url">URL сервера</label>
+        <input class="input" id="ts-url" type="url" placeholder="http://localhost:8090" autocomplete="off">
+      </div>
+      <div class="ts-field">
+        <label for="ts-login">Логин <span style="opacity:.5">(необязательно)</span></label>
+        <input class="input" id="ts-login" type="text" placeholder="" autocomplete="off">
+      </div>
+      <div class="ts-field">
+        <label for="ts-password">Пароль <span style="opacity:.5">(необязательно)</span></label>
+        <div class="key-group">
+          <input class="input" id="ts-password" type="password" placeholder="" autocomplete="off" style="flex:1">
+          <button class="btn-icon" id="ts-pass-eye" type="button" title="Показать / скрыть">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="ts-modal-err" id="ts-modal-err"></div>
+    </div>
+    <div class="ts-modal-foot">
+      <button class="btn-save" id="ts-modal-save" type="button" style="padding:8px 20px;font-size:12px">Сохранить</button>
+      <button class="back-link" id="ts-modal-cancel" type="button" style="padding:8px 16px">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const TRACKERS = {{.TrackersJSON}};
+const TRACKERS        = {{.TrackersJSON}};
+const ADMIN_HIDDEN    = {{.AdminHidden}};
+const ENABLE_PLAYBACK = {{.EnablePlayback}};
 
 // ─── Theme toggle ──────────────────────────────────────────
 (function() {
@@ -172,9 +214,12 @@ function parseNum(str) {
 }
 
 // ─── SVG icons ─────────────────────────────────────────────
-const SVG_MAGNET = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9v4h2V9c0-2.76 2.24-5 5-5s5 2.24 5 5v4h2V9c0-3.87-3.13-7-7-7zm-1 10v8h2v-8h-2z"/></svg>';
-const SVG_COPY   = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
-const SVG_CHECK  = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+const SVG_MAGNET   = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9v4h2V9c0-2.76 2.24-5 5-5s5 2.24 5 5v4h2V9c0-3.87-3.13-7-7-7zm-1 10v8h2v-8h-2z"/></svg>';
+const SVG_COPY     = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+const SVG_CHECK    = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+const SVG_TS_SEND  = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>';
+const SVG_TS_PLAY  = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const SVG_TS_SPIN  = '<span class="ts-spin"></span>';
 
 // ─── Copy magnet ───────────────────────────────────────────
 function copyMagnet(btn, magnet) {
@@ -344,6 +389,24 @@ function renderResults(results, query) {
       cpBtn.addEventListener('click', () => copyMagnet(cpBtn, t.magnet));
       cell.appendChild(cpBtn);
 
+      const tsBtn = document.createElement('button');
+      tsBtn.className    = 'btn-ts';
+      tsBtn.title        = 'Добавить в TorrServer';
+      tsBtn.style.display = tsHasUrl() ? '' : 'none';
+      tsBtn.innerHTML    = SVG_TS_SEND;
+      tsBtn.addEventListener('click', () => addToTorrServer(tsBtn, t.magnet));
+      cell.appendChild(tsBtn);
+
+      if (ENABLE_PLAYBACK) {
+        const playBtn = document.createElement('button');
+        playBtn.className     = 'btn-play';
+        playBtn.title         = 'Воспроизвести через TorrServer';
+        playBtn.style.display = tsHasUrl() ? '' : 'none';
+        playBtn.innerHTML     = SVG_TS_PLAY;
+        playBtn.addEventListener('click', () => playOnTorrServer(playBtn, t.magnet));
+        cell.appendChild(playBtn);
+      }
+
       tbody.appendChild(tr);
     });
 
@@ -421,6 +484,230 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
   const selected = [...enabledTrackers];
   doSearch(query, selected.length < TRACKERS.length ? selected : []);
 });
+
+// ─── TorrServer ────────────────────────────────────────────
+function tsGet()  { return { url: localStorage.getItem('ts_url') || '', login: localStorage.getItem('ts_login') || '', password: localStorage.getItem('ts_password') || '' }; }
+function tsHasUrl() { return !!localStorage.getItem('ts_url'); }
+
+function tsSet(url, login, password) {
+  url ? localStorage.setItem('ts_url', url) : localStorage.removeItem('ts_url');
+  login ? localStorage.setItem('ts_login', login) : localStorage.removeItem('ts_login');
+  password ? localStorage.setItem('ts_password', password) : localStorage.removeItem('ts_password');
+}
+
+function tsUpdateBtns() {
+  const vis = tsHasUrl();
+  document.querySelectorAll('.btn-ts').forEach(b => { b.style.display = vis ? '' : 'none'; });
+  if (ENABLE_PLAYBACK) {
+    document.querySelectorAll('.btn-play').forEach(b => { b.style.display = vis ? '' : 'none'; });
+  }
+}
+
+// Modal
+(function() {
+  const overlay = document.getElementById('ts-overlay');
+  const urlInp  = document.getElementById('ts-url');
+  const loginInp = document.getElementById('ts-login');
+  const passInp = document.getElementById('ts-password');
+  const errEl   = document.getElementById('ts-modal-err');
+
+  function open() {
+    const s = tsGet();
+    urlInp.value   = s.url;
+    loginInp.value = s.login;
+    passInp.value  = s.password;
+    errEl.textContent = '';
+    overlay.classList.remove('hidden');
+    urlInp.focus();
+  }
+  function close() { overlay.classList.add('hidden'); }
+
+  document.getElementById('torrserver-btn').addEventListener('click', open);
+  document.getElementById('ts-modal-x').addEventListener('click', close);
+  document.getElementById('ts-modal-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+
+  document.getElementById('ts-pass-eye').addEventListener('click', function() {
+    passInp.type = passInp.type === 'password' ? 'text' : 'password';
+  });
+
+  document.getElementById('ts-modal-save').addEventListener('click', function() {
+    const url = urlInp.value.trim();
+    if (url) {
+      try { new URL(url); } catch(e) {
+        errEl.textContent = 'Некорректный URL сервера';
+        urlInp.focus();
+        return;
+      }
+    }
+    tsSet(url, loginInp.value.trim(), passInp.value);
+    tsUpdateBtns();
+    close();
+  });
+})();
+
+async function addToTorrServer(btn, magnet) {
+  const s = tsGet();
+  if (!s.url || !magnet) return;
+
+  let torUrl, authHeader = '';
+  try {
+    const u = new URL(s.url);
+    if (u.username || u.password) {
+      authHeader = 'Basic ' + btoa(decodeURIComponent(u.username) + ':' + decodeURIComponent(u.password));
+      u.username = ''; u.password = '';
+    }
+    torUrl = u.origin + '/torrents';
+  } catch(e) {
+    btn.title = 'Некорректный URL TorrServer';
+    return;
+  }
+  if (!authHeader && (s.login || s.password)) {
+    authHeader = 'Basic ' + btoa(s.login + ':' + s.password);
+  }
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (authHeader) headers['Authorization'] = authHeader;
+
+  const origTitle = btn.title;
+  btn.disabled = true;
+  btn.innerHTML = SVG_TS_SPIN;
+  btn.title = 'Отправка…';
+
+  try {
+    const res = await fetch(torUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: 'add', link: magnet, save_to_db: true })
+    });
+
+    if (res.ok) {
+      btn.innerHTML = SVG_CHECK;
+      btn.classList.add('ts-ok');
+      btn.title = 'Торрент отправлен на TorrServer';
+      setTimeout(() => {
+        btn.innerHTML = SVG_TS_SEND;
+        btn.classList.remove('ts-ok');
+        btn.disabled = false;
+        btn.title = origTitle;
+      }, 1800);
+    } else {
+      const msg = res.status === 401 ? 'Ошибка авторизации: проверьте логин и пароль'
+                : res.status === 403 ? 'CORS: разрешите запросы с этого сайта в настройках TorrServer'
+                : 'Ошибка сервера: ' + res.status;
+      btn.innerHTML = SVG_TS_SEND;
+      btn.classList.add('ts-err');
+      btn.disabled = false;
+      btn.title = msg;
+      setTimeout(() => { btn.classList.remove('ts-err'); btn.title = origTitle; }, 3000);
+    }
+  } catch(e) {
+    btn.innerHTML = SVG_TS_SEND;
+    btn.classList.add('ts-err');
+    btn.disabled = false;
+    btn.title = 'Ошибка сети. Проверьте URL и CORS.';
+    setTimeout(() => { btn.classList.remove('ts-err'); btn.title = origTitle; }, 3000);
+  }
+}
+
+async function playOnTorrServer(btn, magnet) {
+  const s = tsGet();
+  if (!s.url || !magnet) return;
+
+  let baseUrl, authHeader = '';
+  try {
+    const u = new URL(s.url);
+    if (u.username || u.password) {
+      authHeader = 'Basic ' + btoa(decodeURIComponent(u.username) + ':' + decodeURIComponent(u.password));
+      u.username = ''; u.password = '';
+    }
+    baseUrl = u.origin;
+  } catch(e) {
+    btn.title = 'Некорректный URL TorrServer';
+    return;
+  }
+  if (!authHeader && (s.login || s.password)) {
+    authHeader = 'Basic ' + btoa(s.login + ':' + s.password);
+  }
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (authHeader) headers['Authorization'] = authHeader;
+
+  const origTitle = btn.title;
+  btn.disabled = true;
+  btn.innerHTML = SVG_TS_SPIN;
+  btn.title = 'Отправка…';
+
+  try {
+    const res = await fetch(baseUrl + '/torrents', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: 'add', link: magnet, save_to_db: true })
+    });
+
+    if (res.ok) {
+      btn.innerHTML = SVG_CHECK;
+      btn.classList.add('ts-ok');
+      btn.title = 'Открываем плеер…';
+      window.open(baseUrl + '/stream?link=' + encodeURIComponent(magnet) + '&index=0&play', '_blank');
+      setTimeout(() => {
+        btn.innerHTML = SVG_TS_PLAY;
+        btn.classList.remove('ts-ok');
+        btn.disabled = false;
+        btn.title = origTitle;
+      }, 1800);
+    } else {
+      const msg = res.status === 401 ? 'Ошибка авторизации: проверьте логин и пароль'
+                : res.status === 403 ? 'CORS: разрешите запросы с этого сайта в настройках TorrServer'
+                : 'Ошибка сервера: ' + res.status;
+      btn.innerHTML = SVG_TS_PLAY;
+      btn.classList.add('ts-err');
+      btn.disabled = false;
+      btn.title = msg;
+      setTimeout(() => { btn.classList.remove('ts-err'); btn.title = origTitle; }, 3000);
+    }
+  } catch(e) {
+    btn.innerHTML = SVG_TS_PLAY;
+    btn.classList.add('ts-err');
+    btn.disabled = false;
+    btn.title = 'Ошибка сети. Проверьте URL и CORS.';
+    setTimeout(() => { btn.classList.remove('ts-err'); btn.title = origTitle; }, 3000);
+  }
+}
+
+// ─── Admin link visibility ─────────────────────────────────
+(function() {
+  const link = document.getElementById('admin-link');
+  if (!link) return;
+
+  if (ADMIN_HIDDEN) {
+    if (sessionStorage.getItem('adminVisible') === '1') {
+      // already unlocked in this session
+    } else {
+      link.style.display = 'none';
+
+      let debounceTimer = null;
+      document.querySelector('.search-input').addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const val = this.value;
+        debounceTimer = setTimeout(async function() {
+          try {
+            const resp = await fetch('/api/admin-check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phrase: val })
+            });
+            const data = await resp.json();
+            if (data.ok) {
+              link.style.display = '';
+              sessionStorage.setItem('adminVisible', '1');
+            }
+          } catch(e) {}
+        }, 400);
+      });
+    }
+  }
+})();
 
 // ─── Init ──────────────────────────────────────────────────
 renderTrackerBar();
